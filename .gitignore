@@ -1,3 +1,37 @@
 # Secrets (never commit)
 config.secrets.php
+.env
+.env.*
+secrets.json
 
+# IDE / tool state
+.cursor/
+.vercel/
+.trae/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build artifacts / vendored deps
+vendor/
+node_modules/
+build/
+dist/
+
+# Runtime artifacts
+logs/
+uploads/
+*.log
+
+# Backups
+backups/
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+*.BACKUP
+
+# Disabled config
+*.disabled
+.htaccess.disabled
