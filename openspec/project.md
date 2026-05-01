@@ -207,7 +207,7 @@ Hierarchy: `user` → `manager` → `admin` → `super_admin`
 - Validate CSRF protection (state-changing operations protected)
 - Test Italian-specific features (CF, P.IVA, province/municipality validation)
 
-**Demo Credentials (all use password: Admin123!):**
+**Demo Credentials (password seeded from `DEMO_SEED_PASSWORD` env var; defaults provided separately for local dev):**
 | Email | Role | Tenant | Purpose |
 |-------|------|--------|---------|
 | superadmin@collaboranexio.com | super_admin | All | System-wide testing |
@@ -421,4 +421,4 @@ draft → in_approvazione → [approvato | rifiutato]
 - **Production URL:** https://app.nexiosolution.it/CollaboraNexio
 - **Database Name:** collaboranexio
 - **Session Name:** COLLAB_SID
-- **Super Admin:** superadmin@collaboranexio.com / Admin123!
+- **Super Admin:** superadmin@collaboranexio.com / `<provided separately — never commit>`

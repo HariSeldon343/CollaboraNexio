@@ -999,7 +999,7 @@ All APIs follow the standard error format:
 ```bash
 curl -X POST "http://localhost:8888/CollaboraNexio/index.php" \
   -c cookies.txt \
-  -d "email=admin@demo.local&password=Admin123!"
+  -d "email=admin@demo.local&password=<DEMO_SEED_PASSWORD>"
 ```
 
 2. **Get CSRF Token:**
