@@ -1,3 +1,9 @@
+# Defense-in-depth: deny source/config artifacts even if root .htaccess is bypassed
+<FilesMatch "(^#.*#|\.(bak|backup|config|dist|disabled|fla|inc|ini|log|orig|psd|sh|sql|sw[op])(_.*)?|~)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
 # Enable RewriteEngine
 RewriteEngine On
 RewriteBase /CollaboraNexio/api/
