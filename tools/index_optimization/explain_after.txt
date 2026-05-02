@@ -1,0 +1,18 @@
+section
+=== Q1: paginated active files (tenant=99999) ===
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	files	range	idx_tenant,idx_deleted,idx_tenant_status,idx_file_tenant_deleted,idx_files_editable,idx_files_locked,idx_files_tenant_folder,idx_files_deleted_at,idx_files_tenant_deleted_folder,idx_files_recent	idx_files_recent	10	NULL	8117	Using where
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	SIMPLE	files	range	idx_tenant,idx_deleted,idx_tenant_status,idx_file_tenant_deleted,idx_files_editable,idx_files_locked,idx_files_tenant_folder,idx_files_deleted_at,idx_files_tenant_deleted_folder,idx_files_recent	idx_files_recent	10	NULL	8117	250.00	100.00	100.00	Using where
+section
+=== Q2: notifications feed (tenant=99999) ===
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	notifications	ref	idx_notifications_tenant_created,idx_notifications_tenant_deleted	idx_notifications_tenant_created	4	const	5363	Using where
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	SIMPLE	notifications	ref	idx_notifications_tenant_created,idx_notifications_tenant_deleted	idx_notifications_tenant_created	4	const	5363	50.00	100.00	100.00	Using where
+section
+=== Q3: audit log time-range (tenant=99999, last 7 days) ===
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	audit_logs	range	idx_fk_tenant,idx_audit_tenant_user,idx_audit_created,idx_audit_tenant_status,idx_audit_deleted,idx_audit_tenant_deleted,idx_audit_dashboard,idx_audit_integrity_hash,idx_audit_integrity_chain	idx_audit_tenant_deleted	13	NULL	2233	Using index condition
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	r_rows	filtered	r_filtered	Extra
+1	SIMPLE	audit_logs	range	idx_fk_tenant,idx_audit_tenant_user,idx_audit_created,idx_audit_tenant_status,idx_audit_deleted,idx_audit_tenant_deleted,idx_audit_dashboard,idx_audit_integrity_hash,idx_audit_integrity_chain	idx_audit_tenant_deleted	13	NULL	2233	100.00	10.60	100.00	Using index condition
