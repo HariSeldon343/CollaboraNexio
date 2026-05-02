@@ -40,6 +40,15 @@ if (!defined('OPENAI_API_BASE')) {
 }
 
 // -------------------------------
+// Performance / observability
+// -------------------------------
+// Slow query threshold in milliseconds. In production you may want a higher
+// threshold than dev to keep the log lean. Set to 0 to disable.
+if (!defined('SLOW_QUERY_THRESHOLD_MS')) {
+    define('SLOW_QUERY_THRESHOLD_MS', 1000);
+}
+
+// -------------------------------
 // Database (optional override)
 // -------------------------------
 // If your tunnel host triggers PRODUCTION_MODE but you still run locally, you can usually leave DB defaults alone.
