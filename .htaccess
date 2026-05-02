@@ -19,7 +19,8 @@ RewriteBase /CollaboraNexio/
 </Files>
 
 # Prevent access to includes and config files
-<FilesMatch "(^#.*#|\.(bak|config|dist|fla|inc|ini|log|psd|sh|sql|sw[op])|~)$">
+# Note: the (_.*)?$ tail covers timestamped variants like *.bak_20251002115421
+<FilesMatch "(^#.*#|\.(bak|backup|config|dist|disabled|fla|inc|ini|log|orig|psd|sh|sql|sw[op])(_.*)?|~)$">
     Order Deny,Allow
     Deny from all
 </FilesMatch>
