@@ -67,19 +67,23 @@ Load Demo Data:
 
 DEMO USER CREDENTIALS
 --------------------
-After loading demo data, use these credentials:
+After loading demo data, use these credentials.
+
+The password is read from the DEMO_SEED_PASSWORD environment variable
+when the seeder runs. The seeder REFUSES to seed in production unless
+DEMO_SEED_PASSWORD is explicitly set, so never rely on a hardcoded default.
 
 Tenant: Demo Company
-- admin@demo.local / Admin123!     (Admin role)
-- manager@demo.local / Admin123!   (Manager role)
-- user1@demo.local / Admin123!     (User role)
-- user2@demo.local / Admin123!     (User role)
-- designer@demo.local / Admin123!  (User role)
-- tester@demo.local / Admin123!    (User role)
+- admin@demo.local / <DEMO_SEED_PASSWORD>     (Admin role)
+- manager@demo.local / <DEMO_SEED_PASSWORD>   (Manager role)
+- user1@demo.local / <DEMO_SEED_PASSWORD>     (User role)
+- user2@demo.local / <DEMO_SEED_PASSWORD>     (User role)
+- designer@demo.local / <DEMO_SEED_PASSWORD>  (User role)
+- tester@demo.local / <DEMO_SEED_PASSWORD>    (User role)
 
 Tenant: Test Organization
-- admin@test.local / Admin123!     (Admin role)
-- user@test.local / Admin123!      (User role)
+- admin@test.local / <DEMO_SEED_PASSWORD>     (Admin role)
+- user@test.local / <DEMO_SEED_PASSWORD>      (User role)
 
 DATABASE FEATURES
 ----------------
@@ -158,7 +162,7 @@ Regular maintenance tasks:
 SECURITY NOTES
 -------------
 - All passwords are hashed using bcrypt
-- Demo data uses 'Admin123!' as the default password
+- Demo data uses the DEMO_SEED_PASSWORD env var (no hardcoded default in production)
 - Change all passwords immediately in production
 - Enable SSL/TLS for database connections in production
 - Review and adjust user permissions as needed

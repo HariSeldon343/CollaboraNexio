@@ -273,8 +273,20 @@ class DatabaseManager {
         try {
             $this->conn->select_db(DB_NAME);
 
-            // Generate password hash
-            $password = 'Admin123!';
+            // Generate password hash for demo seed.
+            // Reads DEMO_SEED_PASSWORD env var; refuses to fall back to a hardcoded
+            // default when the host looks like production. Set the env var explicitly
+            // (e.g. via a local .env loaded by the dev shell) to seed local fixtures.
+            $password = getenv('DEMO_SEED_PASSWORD') ?: '';
+            $isProduction = (defined('PRODUCTION_MODE') && PRODUCTION_MODE)
+                || (getenv('ENVIRONMENT') === 'production')
+                || (($_SERVER['HTTP_HOST'] ?? '') === 'app.nexiosolution.it');
+            if ($password === '') {
+                if ($isProduction) {
+                    throw new Exception('DEMO_SEED_PASSWORD must be set explicitly when seeding in production');
+                }
+                $password = 'Admin123!'; // dev-only fallback; never commit real prod passwords
+            }
             $hash = password_hash($password, PASSWORD_BCRYPT);
             $this->output("✓ Generated password hash for demo users", 'success');
 
@@ -298,11 +310,11 @@ class DatabaseManager {
                 // Show user credentials
                 $this->output("\nDemo User Credentials:", 'info');
                 $this->output("═══════════════════════════════════════", 'info');
-                $this->output("Admin: admin@demo.local / Admin123!", 'success');
-                $this->output("Manager: manager@demo.local / Admin123!", 'success');
-                $this->output("User 1: user1@demo.local / Admin123!", 'success');
-                $this->output("User 2: user2@demo.local / Admin123!", 'success');
-                $this->output("Test Admin: admin@test.local / Admin123!", 'success');
+                $this->output("Admin: admin@demo.local / <DEMO_SEED_PASSWORD>", 'success');
+                $this->output("Manager: manager@demo.local / <DEMO_SEED_PASSWORD>", 'success');
+                $this->output("User 1: user1@demo.local / <DEMO_SEED_PASSWORD>", 'success');
+                $this->output("User 2: user2@demo.local / <DEMO_SEED_PASSWORD>", 'success');
+                $this->output("Test Admin: admin@test.local / <DEMO_SEED_PASSWORD>", 'success');
 
             } else {
                 throw new Exception($this->conn->error);

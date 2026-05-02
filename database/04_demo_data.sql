@@ -26,9 +26,11 @@ ON DUPLICATE KEY UPDATE
 -- ============================================
 -- DEMO DATA - USERS
 -- ============================================
--- Password for all users: Admin123!
--- Hash generated with password_hash('Admin123!', PASSWORD_BCRYPT)
-SET @password_hash = '$2y$10$YourHashHere'; -- This will be replaced by PHP script
+-- Password for all demo users is sourced from the DEMO_SEED_PASSWORD env var
+-- by the PHP seed runner (database/manage_database.php). The placeholder below
+-- is replaced at runtime with password_hash($DEMO_SEED_PASSWORD, PASSWORD_BCRYPT).
+-- Never set a real production password by editing this file directly.
+SET @password_hash = '$2y$10$YourHashHere'; -- Replaced at runtime by PHP seeder
 
 INSERT INTO users (
     tenant_id, email, password_hash, first_name, last_name, display_name,

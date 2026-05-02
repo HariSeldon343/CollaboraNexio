@@ -4,12 +4,13 @@
  * CollaboraNexio - Error Handler
  */
 header('HTTP/1.0 404 Not Found');
-header('Content-Type: application/json');
 
-$isApiRequest = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false;
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
+$isApiRequest = str_starts_with($path, '/CollaboraNexio/api/') || str_starts_with($path, '/api/');
 
 if ($isApiRequest) {
     // API request - return JSON
+    header('Content-Type: application/json');
     echo json_encode([
         'success' => false,
         'error' => 'Endpoint not found',
@@ -18,6 +19,7 @@ if ($isApiRequest) {
     ]);
 } else {
     // Web request - return HTML
+    header('Content-Type: text/html; charset=UTF-8');
     ?>
 <!DOCTYPE html>
 <html lang="it">

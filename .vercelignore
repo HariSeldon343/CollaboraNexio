@@ -3,5 +3,15 @@ build
 dist
 .git
 .trae
-.log
+.cursor
+.vercel
+*.log
+logs/
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+.htaccess.disabled
+.DS_Store
+Thumbs.db
 .figma
