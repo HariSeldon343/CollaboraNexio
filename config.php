@@ -157,6 +157,10 @@ if (!defined('OPENAI_MODEL')) define('OPENAI_MODEL', 'gpt-5.2');
 if (!defined('OPENAI_TIMEOUT_SECONDS')) define('OPENAI_TIMEOUT_SECONDS', 20);
 if (!defined('OPENAI_API_BASE')) define('OPENAI_API_BASE', 'https://api.openai.com');
 
+// Persistent DB cache for OpenAI embedding API calls (table: embedding_cache).
+// Set to false to disable cache and pass-through every call (rollback).
+if (!defined('RAG_EMBEDDING_CACHE_ENABLED')) define('RAG_EMBEDDING_CACHE_ENABLED', true);
+
 // Create directories if they don't exist
 foreach ([UPLOAD_PATH, TEMP_PATH, LOG_PATH] as $path) {
     if (!is_dir($path)) {

@@ -290,7 +290,100 @@ function cnx_openai_chat_json(array $messages, array $jsonSchema = null, array $
 }
 
 /**
+ * Normalize text for cache hashing: trim, collapse whitespace, lowercase (UTF-8).
+ * Deterministic across calls; used as scope-key for the embedding cache.
+ */
+function cnx_openai_embed_normalize_text(string $text): string {
+    $collapsed = preg_replace('/\s+/u', ' ', trim($text));
+    if (!is_string($collapsed)) {
+        $collapsed = trim($text);
+    }
+    return mb_strtolower($collapsed, 'UTF-8');
+}
+
+/**
+ * Append a JSON-line entry to logs/embedding_cache.log (non-blocking).
+ */
+function cnx_openai_embed_cache_log(array $entry): void {
+    try {
+        $dir = defined('LOG_PATH') ? (string)LOG_PATH : (__DIR__ . '/../logs');
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($line === false) return;
+        @file_put_contents($dir . '/embedding_cache.log', $line . "\n", FILE_APPEND | LOCK_EX);
+    } catch (\Throwable $e) {
+        // best-effort, swallow
+    }
+}
+
+/**
+ * Lookup a single embedding in cache. Returns float vector or null on miss.
+ * Non-blocking: any DB error is logged and treated as a miss.
+ */
+function cnx_openai_embed_cache_lookup(string $hash, string $model, ?int &$dimOut = null): ?array {
+    if (!class_exists('Database')) return null;
+    try {
+        $db = \Database::getInstance();
+        $row = $db->fetchOne(
+            'SELECT vec, dim FROM embedding_cache WHERE text_hash = ? AND model = ? LIMIT 1',
+            [$hash, $model]
+        );
+        if (!is_array($row) || !isset($row['vec'])) return null;
+        $expectedDim = (int)($row['dim'] ?? 0);
+        $unpacked = @unpack('g*', (string)$row['vec']);
+        if (!is_array($unpacked) || empty($unpacked)) {
+            error_log('[EMBED_CACHE] unpack failed for hash=' . substr($hash, 0, 12));
+            return null;
+        }
+        $vec = array_values($unpacked);
+        if ($expectedDim > 0 && count($vec) !== $expectedDim) {
+            error_log('[EMBED_CACHE] dim mismatch hash=' . substr($hash, 0, 12) . ' expected=' . $expectedDim . ' got=' . count($vec));
+            return null;
+        }
+        $dimOut = $expectedDim > 0 ? $expectedDim : count($vec);
+        // Update last_hit_at + hit_count (non-blocking, ignore errors)
+        try {
+            $db->query(
+                'UPDATE embedding_cache SET hit_count = hit_count + 1, last_hit_at = NOW() WHERE text_hash = ? AND model = ?',
+                [$hash, $model]
+            );
+        } catch (\Throwable $e) {
+            // ignore: stats update is best-effort
+        }
+        return $vec;
+    } catch (\Throwable $e) {
+        error_log('[EMBED_CACHE] lookup error: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Store embedding in cache. Uses INSERT IGNORE because race between parallel
+ * processes computing the same hash is benign.
+ */
+function cnx_openai_embed_cache_store(string $hash, string $model, array $vec, ?int $tokenCount = null): void {
+    if (!class_exists('Database')) return;
+    if (empty($vec)) return;
+    try {
+        $packed = pack('g*', ...array_map('floatval', $vec));
+        $dim = count($vec);
+        $db = \Database::getInstance();
+        $db->query(
+            'INSERT IGNORE INTO embedding_cache (text_hash, model, dim, vec, token_count, hit_count, last_hit_at) VALUES (?, ?, ?, ?, ?, 0, NULL)',
+            [$hash, $model, $dim, $packed, $tokenCount]
+        );
+    } catch (\Throwable $e) {
+        error_log('[EMBED_CACHE] store error: ' . $e->getMessage());
+    }
+}
+
+/**
  * OpenAI embeddings (best-effort).
+ *
+ * Uses persistent DB cache (table `embedding_cache`) to avoid re-calling the
+ * OpenAI API for previously-seen (model, normalized_text) pairs. Cache is
+ * global by design (deterministic, no PII risk beyond what was already sent
+ * to OpenAI). Toggle with constant RAG_EMBEDDING_CACHE_ENABLED in config.php.
  *
  * @param string[] $texts
  * @return array{ok:bool,embeddings?:array<int,array<float>>,error?:string}
@@ -309,44 +402,178 @@ function cnx_openai_embed_texts(array $texts, array $opts = []): array {
     $timeout = isset($opts['timeout_seconds'])
         ? (int)$opts['timeout_seconds']
         : (defined('OPENAI_TIMEOUT_SECONDS') ? (int)OPENAI_TIMEOUT_SECONDS : 20);
-    $payload = [
+
+    $cacheEnabled = !defined('RAG_EMBEDDING_CACHE_ENABLED') || (bool)RAG_EMBEDDING_CACHE_ENABLED;
+    $startedAt = microtime(true);
+
+    $inputs = array_values($texts);
+    $inputCount = count($inputs);
+    $output = array_fill(0, $inputCount, null);
+    $hashes = [];
+    $missIndices = [];
+    $hits = 0;
+
+    // 1) Cache lookup per input (skip empty strings: pass-through to API behavior)
+    foreach ($inputs as $i => $text) {
+        $textStr = (string)$text;
+        if ($textStr === '') {
+            $missIndices[] = $i;
+            $hashes[$i] = null;
+            continue;
+        }
+        if (!$cacheEnabled) {
+            $missIndices[] = $i;
+            $hashes[$i] = null;
+            continue;
+        }
+        $normalized = cnx_openai_embed_normalize_text($textStr);
+        $hash = hash('sha256', $normalized);
+        $hashes[$i] = $hash;
+        $vec = cnx_openai_embed_cache_lookup($hash, $model);
+        if ($vec !== null) {
+            $output[$i] = $vec;
+            $hits++;
+        } else {
+            $missIndices[] = $i;
+        }
+    }
+
+    $apiCallMade = 0;
+
+    // 2) Call OpenAI only for misses
+    if (!empty($missIndices)) {
+        $missTexts = [];
+        foreach ($missIndices as $idx) {
+            $missTexts[] = (string)$inputs[$idx];
+        }
+        $payload = [
+            'model' => $model,
+            'input' => $missTexts,
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+            ],
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+        $resp = curl_exec($ch);
+        $err = curl_error($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $apiCallMade = 1;
+
+        if ($resp === false) {
+            cnx_openai_embed_cache_log([
+                'ts' => date('c'),
+                'input_count' => $inputCount,
+                'hits' => $hits,
+                'misses' => count($missIndices),
+                'api_calls' => $apiCallMade,
+                'model' => $model,
+                'ms' => (int)round((microtime(true) - $startedAt) * 1000),
+                'error' => 'curl_error',
+            ]);
+            return ['ok' => false, 'error' => 'Errore cURL: ' . $err];
+        }
+        $decoded = json_decode($resp, true);
+        if ($code < 200 || $code >= 300) {
+            $msg = is_array($decoded) ? (string)($decoded['error']['message'] ?? $decoded['message'] ?? '') : '';
+            if ($msg === '') $msg = "HTTP {$code}";
+            cnx_openai_embed_cache_log([
+                'ts' => date('c'),
+                'input_count' => $inputCount,
+                'hits' => $hits,
+                'misses' => count($missIndices),
+                'api_calls' => $apiCallMade,
+                'model' => $model,
+                'ms' => (int)round((microtime(true) - $startedAt) * 1000),
+                'error' => 'http_' . $code,
+            ]);
+            return ['ok' => false, 'error' => $msg];
+        }
+        $data = $decoded['data'] ?? null;
+        if (!is_array($data)) {
+            cnx_openai_embed_cache_log([
+                'ts' => date('c'),
+                'input_count' => $inputCount,
+                'hits' => $hits,
+                'misses' => count($missIndices),
+                'api_calls' => $apiCallMade,
+                'model' => $model,
+                'ms' => (int)round((microtime(true) - $startedAt) * 1000),
+                'error' => 'invalid_response',
+            ]);
+            return ['ok' => false, 'error' => 'Risposta embeddings non valida'];
+        }
+
+        // Token count (best-effort, applied uniformly to misses if available)
+        $totalTokens = (int)($decoded['usage']['total_tokens'] ?? 0);
+        $perItemTokens = ($totalTokens > 0 && count($missIndices) > 0)
+            ? (int)round($totalTokens / count($missIndices))
+            : null;
+
+        // OpenAI returns embeddings in input order; map back via $missIndices
+        foreach ($data as $rowIdx => $row) {
+            $emb = $row['embedding'] ?? null;
+            if (!is_array($emb)) continue;
+            $vec = array_map('floatval', $emb);
+            if (!isset($missIndices[$rowIdx])) continue;
+            $origIdx = $missIndices[$rowIdx];
+            $output[$origIdx] = $vec;
+            // Store in cache if we computed a hash for this index
+            if ($cacheEnabled && !empty($hashes[$origIdx])) {
+                cnx_openai_embed_cache_store($hashes[$origIdx], $model, $vec, $perItemTokens);
+            }
+        }
+    }
+
+    // 3) Validate output: any null entry means missing embedding
+    $finalOut = [];
+    foreach ($output as $vec) {
+        if (!is_array($vec)) {
+            cnx_openai_embed_cache_log([
+                'ts' => date('c'),
+                'input_count' => $inputCount,
+                'hits' => $hits,
+                'misses' => count($missIndices),
+                'api_calls' => $apiCallMade,
+                'model' => $model,
+                'ms' => (int)round((microtime(true) - $startedAt) * 1000),
+                'error' => 'incomplete_output',
+            ]);
+            return ['ok' => false, 'error' => 'Embeddings vuote'];
+        }
+        $finalOut[] = $vec;
+    }
+    if (empty($finalOut)) {
+        cnx_openai_embed_cache_log([
+            'ts' => date('c'),
+            'input_count' => $inputCount,
+            'hits' => $hits,
+            'misses' => count($missIndices),
+            'api_calls' => $apiCallMade,
+            'model' => $model,
+            'ms' => (int)round((microtime(true) - $startedAt) * 1000),
+            'error' => 'empty',
+        ]);
+        return ['ok' => false, 'error' => 'Embeddings vuote'];
+    }
+
+    cnx_openai_embed_cache_log([
+        'ts' => date('c'),
+        'input_count' => $inputCount,
+        'hits' => $hits,
+        'misses' => count($missIndices),
+        'api_calls' => $apiCallMade,
         'model' => $model,
-        'input' => array_values($texts),
-    ];
-
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $apiKey,
-        ],
-        CURLOPT_TIMEOUT => $timeout,
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ms' => (int)round((microtime(true) - $startedAt) * 1000),
     ]);
-    $resp = curl_exec($ch);
-    $err = curl_error($ch);
-    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
-    if ($resp === false) {
-        return ['ok' => false, 'error' => 'Errore cURL: ' . $err];
-    }
-    $decoded = json_decode($resp, true);
-    if ($code < 200 || $code >= 300) {
-        $msg = is_array($decoded) ? (string)($decoded['error']['message'] ?? $decoded['message'] ?? '') : '';
-        if ($msg === '') $msg = "HTTP {$code}";
-        return ['ok' => false, 'error' => $msg];
-    }
-    $data = $decoded['data'] ?? null;
-    if (!is_array($data)) return ['ok' => false, 'error' => 'Risposta embeddings non valida'];
-    $out = [];
-    foreach ($data as $row) {
-        $emb = $row['embedding'] ?? null;
-        if (!is_array($emb)) continue;
-        $out[] = array_map('floatval', $emb);
-    }
-    if (empty($out)) return ['ok' => false, 'error' => 'Embeddings vuote'];
-    return ['ok' => true, 'embeddings' => $out];
+    return ['ok' => true, 'embeddings' => $finalOut];
 }
