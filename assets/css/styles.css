@@ -127,6 +127,111 @@
     --sidebar-collapsed-width: 64px;
     --header-height: 60px;
     --container-max-width: 1280px;
+
+    /* ========================================
+       UI REDESIGN 2026-05 — CNX Design Tokens
+       Spec: docs/design/direction.md
+       Light theme defaults; dark overrides in [data-theme="dark"]
+       ======================================== */
+
+    /* CNX — Surfaces & Backgrounds */
+    --cnx-bg-app: #F5F7F8;
+    --cnx-bg-surface: #FFFFFF;
+    --cnx-bg-subtle: #EEF2F3;
+    --cnx-bg-sidebar: #1F3D3D;
+    --cnx-bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --cnx-bg-sidebar-active: rgba(95, 202, 211, 0.16);
+
+    /* CNX — Accent (mint/teal — single accent) */
+    --cnx-accent: #5FCAD3;
+    --cnx-accent-hover: #4FB8C2;
+    --cnx-accent-soft: #E8F7F8;
+    --cnx-accent-ink: #0F2D31;
+
+    /* CNX — Text */
+    --cnx-text-primary: #0F1A1F;
+    --cnx-text-secondary: #4A5560;
+    --cnx-text-muted: #8893A0;
+    --cnx-text-on-sidebar: #FFFFFF;
+    --cnx-text-on-sidebar-muted: rgba(255, 255, 255, 0.62);
+
+    /* CNX — Borders */
+    --cnx-border: #E4E8EC;
+    --cnx-border-strong: #CFD6DC;
+
+    /* CNX — Status */
+    --cnx-success: #22C55E;
+    --cnx-warning: #F59E0B;
+    --cnx-danger: #EF4444;
+    --cnx-info: #5FCAD3;
+
+    /* CNX — Typography (font-size / line-height / weight) */
+    --cnx-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --cnx-text-display-size: 32px;
+    --cnx-text-display-line: 40px;
+    --cnx-text-display-weight: 700;
+    --cnx-text-h1-size: 24px;
+    --cnx-text-h1-line: 32px;
+    --cnx-text-h1-weight: 600;
+    --cnx-text-h2-size: 18px;
+    --cnx-text-h2-line: 26px;
+    --cnx-text-h2-weight: 600;
+    --cnx-text-h3-size: 15px;
+    --cnx-text-h3-line: 22px;
+    --cnx-text-h3-weight: 600;
+    --cnx-text-body-size: 14px;
+    --cnx-text-body-line: 22px;
+    --cnx-text-body-weight: 400;
+    --cnx-text-small-size: 13px;
+    --cnx-text-small-line: 20px;
+    --cnx-text-small-weight: 400;
+    --cnx-text-caption-size: 12px;
+    --cnx-text-caption-line: 16px;
+    --cnx-text-caption-weight: 500;
+    --cnx-text-caption-tracking: 0.06em;
+    --cnx-tracking-tight: -0.01em;
+
+    /* CNX — Spacing extensions */
+    --cnx-space-card-padding: 24px;
+    --cnx-space-section-gap: 32px;
+
+    /* CNX — Radii */
+    --cnx-radius-sm: 6px;
+    --cnx-radius-md: 10px;
+    --cnx-radius-lg: 16px;
+    --cnx-radius-xl: 20px;
+    --cnx-radius-pill: 9999px;
+
+    /* CNX — Shadows (max y-12, alpha <= 0.08) */
+    --cnx-shadow-sm: 0 1px 2px rgba(15, 26, 31, 0.04);
+    --cnx-shadow-md: 0 4px 12px rgba(15, 26, 31, 0.06);
+    --cnx-shadow-lg: 0 12px 24px rgba(15, 26, 31, 0.08);
+    --cnx-shadow-focus: 0 0 0 3px rgba(95, 202, 211, 0.32);
+
+    /* CNX — Motion */
+    --cnx-transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   UI REDESIGN 2026-05 — Dark theme overrides
+   Sidebar conserva il proprio aspetto in entrambi i temi (gia' dark by design).
+   Solo content area cambia.
+   ======================================== */
+[data-theme="dark"] {
+    --cnx-bg-app: #0E1A1D;
+    --cnx-bg-surface: #15262A;
+    --cnx-bg-subtle: #1B2F33;
+    --cnx-bg-sidebar: #0A1517;
+
+    --cnx-accent: #5FCAD3;
+    --cnx-accent-soft: rgba(95, 202, 211, 0.12);
+
+    --cnx-text-primary: #E6EEF0;
+    --cnx-text-secondary: #A8B5BB;
+    --cnx-text-muted: #6B7A82;
+
+    --cnx-border: #22363B;
+    --cnx-border-strong: #2E464C;
 }
 
 /* ========================================
