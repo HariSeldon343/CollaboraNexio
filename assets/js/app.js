@@ -110,6 +110,9 @@
         const open = () => {
             sidebar.classList.add('open');
             scrim.classList.add('open');
+            // Round 4.2: body-level class flips pointer-events on page content
+            // and forces sidebar/scrim z-index to win against page floats.
+            document.body.classList.add('cnx-drawer-open');
             toggle.setAttribute('aria-expanded', 'true');
             toggle.setAttribute('aria-label', 'Chiudi menu');
             // Prevent body scroll while drawer open
@@ -118,6 +121,7 @@
         const close = () => {
             sidebar.classList.remove('open');
             scrim.classList.remove('open');
+            document.body.classList.remove('cnx-drawer-open');
             toggle.setAttribute('aria-expanded', 'false');
             toggle.setAttribute('aria-label', 'Apri menu');
             document.body.style.overflow = '';

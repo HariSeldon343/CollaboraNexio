@@ -1880,8 +1880,7 @@
     background: rgba(8, 14, 16, 0.55);
     z-index: 1050;            /* below sidebar (1100), above everything else */
     /* Round 4.1: removed backdrop-filter — on iOS Safari + Brave it leaked
-       the blur across the sidebar itself, making nav text unreadable. The
-       solid alpha veil already provides sufficient depth + focus separation. */
+       the blur across the sidebar itself, making nav text unreadable. */
     animation: cnxScrimIn 180ms ease;
 }
 .cnx-sidebar-scrim.open { display: block; }
@@ -1890,13 +1889,47 @@
     to   { opacity: 1; }
 }
 
-/* Defensive: ensure no parent backdrop-filter affects the open drawer.
-   Some pages set filter/backdrop-filter on .main-content or body which
-   propagate down due to stacking-context creation. */
+/* Defensive: ensure no parent filter/transform affects the open drawer. */
 .sidebar[data-cnx-sidebar="true"].open {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     filter: none !important;
+    /* Round 4.2: force the drawer into a top-level isolation/stacking
+       context so its z-index is compared against body-level siblings
+       (the scrim) and not trapped inside .main-layout's local context.
+       This fixes iOS Safari/Brave where the company-filter pill or other
+       page floats with z-index >= 100 leaked above the open drawer. */
+    isolation: isolate;
+}
+
+/* Round 4.2 — when the drawer is OPEN on mobile, the page content
+   underneath must be both visually behind AND non-interactive so taps
+   on the sidebar nav links are not intercepted by floating elements
+   (company-filter pill, modal backdrops, page-internal popovers).
+   Targets the document body via a class flipped by app.js. */
+body.cnx-drawer-open .main-content,
+body.cnx-drawer-open .cnx-app-topbar,
+body.cnx-drawer-open .header,
+body.cnx-drawer-open header.header {
+    pointer-events: none;
+}
+/* Re-enable pointer events on the sidebar itself + the scrim (closes drawer) */
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"],
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"] *,
+body.cnx-drawer-open .cnx-sidebar-scrim {
+    pointer-events: auto;
+}
+/* Also ensure ALL page-internal floats (popovers, dropdowns, modals)
+   stay below the drawer when it's open. */
+body.cnx-drawer-open *:not(.sidebar):not(.sidebar *):not(.cnx-sidebar-scrim) {
+    z-index: auto !important;
+}
+/* But DO NOT apply z-index reset to the sidebar/scrim themselves */
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"] {
+    z-index: 1100 !important;
+}
+body.cnx-drawer-open .cnx-sidebar-scrim {
+    z-index: 1050 !important;
 }
 
 /* ============================================================================
