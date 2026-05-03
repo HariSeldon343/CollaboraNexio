@@ -26,10 +26,16 @@
     gap: 16px;
     height: 64px;
     padding: 0 32px;
-    background: var(--cnx-accent-soft);
+    /* Round 3 — flat surface, no glass: violates direction.md "no glassmorphism".
+       Was: background var(--cnx-accent-soft) + backdrop-filter blur(8px). */
+    background: var(--cnx-bg-surface);
     border-bottom: 1px solid var(--cnx-border);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+}
+[data-theme="dark"] .cnx-app-topbar {
+    /* In dark mode, fuse with app bg so the topbar reads as one continuous
+       surface with the page content (was teal-tinted glass). */
+    background: var(--cnx-bg-app);
+    border-bottom-color: var(--cnx-border);
 }
 
 /* Reserve the 64px under the fixed topbar, so per-page content starts below. */
@@ -1199,4 +1205,516 @@
 
 .cnx-link:hover {
     color: var(--cnx-accent-hover);
+}
+
+/* ============================================================================
+   ROUND 3 — DARK MODE SYSTEMIC FIXES
+   Address 186 audit findings across 10 pages by overriding hardcoded white
+   backgrounds, missing button rules, neon legacy accents, invisible borders,
+   and page-specific containers that bypassed the global token cascade.
+
+   All rules live under [data-theme="dark"] so light mode is untouched.
+   ============================================================================ */
+
+/* ----- Global: missing .btn-danger rule (used by aziende "Elimina selezionate") */
+.btn-danger {
+    background: var(--cnx-danger);
+    color: #fff;
+    border: 1px solid var(--cnx-danger);
+    border-radius: var(--cnx-radius-md, 10px);
+    padding: 8px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: filter 150ms ease;
+}
+.btn-danger:hover { filter: brightness(0.92); }
+.btn-danger:disabled,
+.btn-danger[disabled] {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    border-color: var(--cnx-border);
+    cursor: not-allowed;
+}
+
+/* ----- Action-row icon buttons (aziende/utenti):
+   Pencil/users/trash/key emoji can't be color-tinted via CSS color, so we
+   neutralise the saturation. Markup change to SVG would be ideal; this is
+   the CSS-only mitigation flagged in the audit. */
+[data-theme="dark"] .actions button,
+[data-theme="dark"] .action-buttons button,
+[data-theme="dark"] .table-actions button {
+    background: var(--cnx-bg-subtle);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-secondary);
+}
+[data-theme="dark"] .actions button > *,
+[data-theme="dark"] .action-buttons button > *,
+[data-theme="dark"] .table-actions button > * {
+    filter: grayscale(0.65) brightness(1.05);
+}
+
+/* ============================================================================
+   AUDIT_LOG.PHP — KNOWN BIG ISSUE: white slabs in dark mode
+   ============================================================================ */
+[data-theme="dark"] .filters-container,
+[data-theme="dark"] .table-container {
+    background: var(--cnx-bg-surface) !important;
+    border-color: var(--cnx-border) !important;
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .filters-container h2,
+[data-theme="dark"] .filters-container label,
+[data-theme="dark"] .table-container h2,
+[data-theme="dark"] .filter-group label {
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .filters-container input,
+[data-theme="dark"] .filters-container select,
+[data-theme="dark"] .filters-container textarea,
+[data-theme="dark"] .filter-group input,
+[data-theme="dark"] .filter-group select {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+/* Reset/Esporta secondary buttons: were white-on-white, invisible. */
+[data-theme="dark"] .filters-container .btn-secondary,
+[data-theme="dark"] .table-container .btn-secondary,
+[data-theme="dark"] .audit-table .btn-secondary {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 1px solid var(--cnx-border-strong) !important;
+}
+[data-theme="dark"] .audit-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .audit-table tbody tr {
+    background: transparent;
+    border-bottom-color: var(--cnx-border);
+}
+[data-theme="dark"] .audit-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+
+/* ============================================================================
+   TASKS.PHP — yellow alert banners hardcoded #FEF3C7/#92400E
+   These are inline <style> in tasks.php; the only CSS-only path is to override
+   the matching selectors here in dark mode.
+   ============================================================================ */
+[data-theme="dark"] .alert,
+[data-theme="dark"] .alert-warning,
+[data-theme="dark"] .alert-info,
+[data-theme="dark"] .multi-tenant-warning,
+[data-theme="dark"] .orphan-tasks-warning {
+    background: rgba(251, 191, 36, 0.10) !important;
+    color: #FBBF24 !important;
+    border: 1px solid rgba(251, 191, 36, 0.32) !important;
+}
+[data-theme="dark"] .alert a,
+[data-theme="dark"] .alert-warning a,
+[data-theme="dark"] .alert-info a,
+[data-theme="dark"] .orphan-tasks-warning a {
+    color: var(--cnx-accent) !important;
+    text-decoration: underline;
+}
+/* Filter pills row — "Tutti" was bright legacy blue */
+[data-theme="dark"] .filter-tabs .filter-tab,
+[data-theme="dark"] .task-filter-tab,
+[data-theme="dark"] .filter-pill {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .filter-tabs .filter-tab.active,
+[data-theme="dark"] .task-filter-tab.active,
+[data-theme="dark"] .filter-pill.active,
+[data-theme="dark"] .filter-pill[aria-selected="true"] {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+/* Task kanban columns + cards */
+[data-theme="dark"] .kanban-column,
+[data-theme="dark"] .task-column {
+    background: transparent;
+}
+[data-theme="dark"] .task-card,
+[data-theme="dark"] .kanban-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+
+/* ============================================================================
+   FILES.PHP — purple gradient "Cartella Tenant" + drop-zone white
+   ============================================================================ */
+#createRootFolderBtn {
+    /* Strip the off-brand purple gradient in BOTH themes. */
+    background: var(--cnx-accent) !important;
+    background-image: none !important;
+    color: var(--cnx-accent-ink) !important;
+    border: 1px solid var(--cnx-accent) !important;
+    box-shadow: none !important;
+}
+#createRootFolderBtn:hover {
+    background: var(--cnx-accent-hover) !important;
+}
+[data-theme="dark"] #createRootFolderBtn {
+    background: var(--cnx-accent) !important;
+    color: var(--cnx-accent-ink) !important;
+}
+
+/* Drop-zone overlay — was rgba(255,255,255,0.97) flash on dark UI */
+[data-theme="dark"] .drop-zone-overlay,
+[data-theme="dark"] .upload-overlay,
+[data-theme="dark"] .file-drop-overlay {
+    background: rgba(15, 26, 29, 0.92) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 2px dashed var(--cnx-accent) !important;
+}
+
+/* btn-secondary global override (workflow.css hardcoded #6b7280 white text)
+   leaks into "Nuovo Documento" + every secondary button site-wide. */
+[data-theme="dark"] .btn-secondary {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 1px solid var(--cnx-border-strong) !important;
+}
+[data-theme="dark"] .btn-secondary:hover {
+    background: var(--cnx-border) !important;
+}
+
+/* File-manager grid + list rows */
+[data-theme="dark"] .file-grid-item,
+[data-theme="dark"] .file-list-item,
+[data-theme="dark"] .folder-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .file-grid-item:hover,
+[data-theme="dark"] .file-list-item:hover {
+    background: var(--cnx-bg-subtle);
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .file-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom: 1px solid var(--cnx-border-strong);
+}
+
+/* ============================================================================
+   DASHBOARD.PHP — hero-card SVG art, stat-cards, calendar widget
+   ============================================================================ */
+[data-theme="dark"] .cnx-hero-card {
+    background: linear-gradient(135deg, #0F2D31 0%, #0A1517 100%);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .cnx-hero-card__art svg [stroke="#0F1A1F"],
+[data-theme="dark"] .cnx-hero-card__art svg [stroke="#0F2D31"] {
+    stroke: var(--cnx-accent) !important;
+    opacity: 0.65;
+}
+[data-theme="dark"] .cnx-hero-card__art svg path,
+[data-theme="dark"] .cnx-hero-card__art svg rect,
+[data-theme="dark"] .cnx-hero-card__art svg circle,
+[data-theme="dark"] .cnx-hero-card__art svg line {
+    stroke: rgba(95, 202, 211, 0.55);
+}
+[data-theme="dark"] .cnx-hero-card__tagline {
+    color: var(--cnx-accent);
+    opacity: 0.85;
+}
+/* Mini calendar inside dashboard — invisible event dots */
+[data-theme="dark"] .mini-calendar-day .event-dot,
+[data-theme="dark"] .mini-cal-dot {
+    background: var(--cnx-accent);
+}
+
+/* ============================================================================
+   CALENDAR.PHP — toolbar buttons, event chips, grid lines
+   ============================================================================ */
+[data-theme="dark"] .calendar-toolbar .btn,
+[data-theme="dark"] .calendar-controls .btn,
+[data-theme="dark"] .view-switcher .btn {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .calendar-toolbar .btn.active,
+[data-theme="dark"] .calendar-controls .btn.active,
+[data-theme="dark"] .view-switcher .btn.active {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+[data-theme="dark"] .calendar-grid,
+[data-theme="dark"] .fc-daygrid,
+[data-theme="dark"] .calendar-month {
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .calendar-day,
+[data-theme="dark"] .calendar-cell,
+[data-theme="dark"] .fc-daygrid-day {
+    border-color: var(--cnx-border-strong);
+    background: var(--cnx-bg-app);
+}
+[data-theme="dark"] .calendar-weekdays,
+[data-theme="dark"] .calendar-header-row,
+[data-theme="dark"] .fc-col-header {
+    background: var(--cnx-bg-subtle);
+    border-bottom: 1px solid var(--cnx-border-strong);
+    color: var(--cnx-text-secondary);
+}
+[data-theme="dark"] .calendar-day.other-month,
+[data-theme="dark"] .calendar-day.outside,
+[data-theme="dark"] .fc-day-other {
+    opacity: 0.45;
+}
+/* Dim oversaturated event chips — they keep their hue but lose the neon */
+[data-theme="dark"] .calendar-event,
+[data-theme="dark"] .fc-event {
+    filter: saturate(0.7) brightness(0.92);
+}
+
+/* ============================================================================
+   TURNI.PHP — toolbar buttons, today indicator, grid
+   ============================================================================ */
+[data-theme="dark"] .shifts-toolbar .btn,
+[data-theme="dark"] .shifts-header button {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .shifts-toolbar .btn.active,
+[data-theme="dark"] .shifts-header button.active {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+[data-theme="dark"] .shifts-grid .day-cell,
+[data-theme="dark"] .shifts-grid .week-cell,
+[data-theme="dark"] .shifts-cell {
+    border-color: var(--cnx-border-strong);
+    background: var(--cnx-bg-app);
+}
+[data-theme="dark"] .shifts-grid .today,
+[data-theme="dark"] .shifts-cell.today,
+[data-theme="dark"] .day-cell.today {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent);
+}
+[data-theme="dark"] .shifts-grid .day-cell.today .day-number,
+[data-theme="dark"] .day-number.today {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+}
+[data-theme="dark"] .shifts-requests-sidebar,
+[data-theme="dark"] .requests-panel {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .shift-empty-state {
+    color: var(--cnx-text-muted);
+}
+
+/* ============================================================================
+   TICKET.PHP — primary CTA, badges, stat cards, filter inputs
+   ============================================================================ */
+[data-theme="dark"] .ticket-stats-grid .stat-card,
+[data-theme="dark"] .ticket-stat-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .ticket-filter-row select,
+[data-theme="dark"] .ticket-filter-row input,
+[data-theme="dark"] .ticket-filters input,
+[data-theme="dark"] .ticket-filters select {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+/* Status / priority badges — pill fill that was missing (undefined tokens) */
+[data-theme="dark"] .ticket-status,
+[data-theme="dark"] .ticket-priority,
+[data-theme="dark"] .badge-status,
+[data-theme="dark"] .badge-priority {
+    background: var(--cnx-bg-subtle);
+    border: 1px solid var(--cnx-border-strong);
+    color: var(--cnx-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--cnx-radius-sm, 6px);
+}
+[data-theme="dark"] .ticket-status.open,
+[data-theme="dark"] .badge-status.open {
+    background: rgba(95, 202, 211, 0.14);
+    color: var(--cnx-accent);
+    border-color: rgba(95, 202, 211, 0.32);
+}
+[data-theme="dark"] .ticket-status.resolved,
+[data-theme="dark"] .badge-status.resolved {
+    background: rgba(45, 212, 191, 0.14);
+    color: #2DD4BF;
+    border-color: rgba(45, 212, 191, 0.32);
+}
+[data-theme="dark"] .ticket-priority.alta,
+[data-theme="dark"] .ticket-priority.critica,
+[data-theme="dark"] .badge-priority.high {
+    background: rgba(248, 113, 113, 0.14);
+    color: #F87171;
+    border-color: rgba(248, 113, 113, 0.32);
+}
+
+/* ============================================================================
+   AZIENDE.PHP + UTENTI.PHP — search, table headers, role badges, modal
+   ============================================================================ */
+[data-theme="dark"] .users-table thead th,
+[data-theme="dark"] .companies-table thead th,
+[data-theme="dark"] .data-table thead th,
+[data-theme="dark"] table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom: 1px solid var(--cnx-border-strong);
+}
+[data-theme="dark"] .users-table tbody tr,
+[data-theme="dark"] .companies-table tbody tr,
+[data-theme="dark"] .data-table tbody tr {
+    border-bottom-color: var(--cnx-border);
+}
+[data-theme="dark"] .users-table tbody tr:hover,
+[data-theme="dark"] .companies-table tbody tr:hover,
+[data-theme="dark"] .data-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+/* Role-type badges (UTENTE/MANAGER/ADMIN) were pastel hex — replace with
+   token pairs that flip in dark mode. */
+[data-theme="dark"] .role-badge,
+[data-theme="dark"] .badge-role {
+    border: 1px solid var(--cnx-border-strong);
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--cnx-radius-sm, 6px);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+}
+[data-theme="dark"] .role-badge.role-utente,
+[data-theme="dark"] .role-badge.role-user,
+[data-theme="dark"] .badge-role.user {
+    background: rgba(95, 202, 211, 0.14);
+    color: var(--cnx-accent);
+    border-color: rgba(95, 202, 211, 0.32);
+}
+[data-theme="dark"] .role-badge.role-manager,
+[data-theme="dark"] .badge-role.manager {
+    background: rgba(168, 181, 187, 0.14);
+    color: var(--cnx-text-secondary);
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .role-badge.role-admin,
+[data-theme="dark"] .role-badge.role-super-admin,
+[data-theme="dark"] .badge-role.admin {
+    background: rgba(45, 212, 191, 0.14);
+    color: #2DD4BF;
+    border-color: rgba(45, 212, 191, 0.32);
+}
+/* Modal containers — were inheriting --color-white legacy = darker than card */
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .modal-body,
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    border-color: var(--cnx-border);
+}
+[data-theme="dark"] .modal-content input,
+[data-theme="dark"] .modal-content select,
+[data-theme="dark"] .modal-content textarea {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+
+/* ============================================================================
+   CONFIGURAZIONI.PHP — tab strip + toggle switches
+   ============================================================================ */
+[data-theme="dark"] .tab-btn,
+[data-theme="dark"] .config-tabs button {
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    border-bottom: 2px solid transparent;
+}
+[data-theme="dark"] .tab-btn.active,
+[data-theme="dark"] .config-tabs button.active {
+    color: var(--cnx-accent);
+    border-bottom-color: var(--cnx-accent);
+    background: transparent;
+}
+[data-theme="dark"] .toggle-switch input:checked + .toggle-slider,
+[data-theme="dark"] .switch input:checked + .slider,
+[data-theme="dark"] input:checked + .toggle-slider {
+    background-color: var(--cnx-accent) !important;
+}
+[data-theme="dark"] .config-section,
+[data-theme="dark"] .settings-section,
+[data-theme="dark"] .config-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+
+/* ============================================================================
+   FILTER INPUTS — site-wide search/filter controls had invisible borders
+   ============================================================================ */
+[data-theme="dark"] .search-input,
+[data-theme="dark"] .filter-input,
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="text"]:not(.cnx-input),
+[data-theme="dark"] input[type="email"]:not(.cnx-input),
+[data-theme="dark"] input[type="number"]:not(.cnx-input),
+[data-theme="dark"] input[type="date"]:not(.cnx-input),
+[data-theme="dark"] select:not(.cnx-input),
+[data-theme="dark"] textarea:not(.cnx-input) {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+[data-theme="dark"] .search-input::placeholder,
+[data-theme="dark"] .filter-input::placeholder,
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: var(--cnx-text-muted);
+    opacity: 0.85;
+}
+[data-theme="dark"] .search-input:focus,
+[data-theme="dark"] .filter-input:focus,
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    outline: none;
+    border-color: var(--cnx-accent);
+    box-shadow: 0 0 0 2px rgba(95, 202, 211, 0.2);
+}
+
+/* ============================================================================
+   STAT CARDS — unify .stat-card legacy in dark
+   ============================================================================ */
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .dashboard-stat-card,
+[data-theme="dark"] .info-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .stat-card .stat-label,
+[data-theme="dark"] .stat-card label {
+    color: var(--cnx-text-secondary);
+    letter-spacing: 0.04em;
+}
+[data-theme="dark"] .stat-card .stat-value,
+[data-theme="dark"] .stat-card strong {
+    color: var(--cnx-text-primary);
 }

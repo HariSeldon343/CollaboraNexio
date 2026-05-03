@@ -230,8 +230,46 @@
     --cnx-text-secondary: #A8B5BB;
     --cnx-text-muted: #6B7A82;
 
-    --cnx-border: #22363B;
-    --cnx-border-strong: #2E464C;
+    /* Borders strengthened so calendar/table/filter grids stay visible
+       (round 3 — was #22363B ≈ bg-subtle, now ~3x luminance delta). */
+    --cnx-border: #2E464C;
+    --cnx-border-strong: #455F66;
+
+    /* CRITICAL: remap legacy --color-primary cobalt to mint accent.
+       Cascading fix — flips every legacy .btn-primary, .tab-btn.active,
+       :checked toggle, calendar today indicator, "Tutti" pill, "+ Nuovo"
+       CTAs, event highlights, etc. that hadn't been migrated yet. */
+    --color-primary: #5FCAD3;
+    --color-primary-dark: #4FB8C2;
+    --color-primary-light: rgba(95, 202, 211, 0.18);
+
+    /* Semantic colors flipped to CNX status palette (slightly desaturated
+       for dark surface contrast). */
+    --color-success: #2DD4BF;
+    --color-warning: #FBBF24;
+    --color-error: #F87171;
+    --color-info: #5FCAD3;
+
+    /* Missing tokens referenced by alert-box/badge rules in light mode
+       but never defined globally — define here AND backfill :root above
+       via fallback. Surface tints designed for dark bg. */
+    --color-primary-50: rgba(95, 202, 211, 0.10);
+    --color-primary-100: rgba(95, 202, 211, 0.16);
+    --color-primary-200: rgba(95, 202, 211, 0.24);
+    --color-primary-700: #5FCAD3;
+    --color-warning-50: rgba(251, 191, 36, 0.10);
+    --color-warning-100: rgba(251, 191, 36, 0.16);
+    --color-warning-200: rgba(251, 191, 36, 0.24);
+    --color-warning-700: #FBBF24;
+    --color-success-100: rgba(45, 212, 191, 0.18);
+    --color-error-100: rgba(248, 113, 113, 0.18);
+
+    /* Sidebar legacy: was a dark blue gradient — flatten to dark teal so
+       it visually fuses with --cnx-bg-sidebar and the redesigned shell. */
+    --color-sidebar-bg-start: #0A1517;
+    --color-sidebar-bg-end: #0A1517;
+    --color-sidebar-active: #5FCAD3;
+    --color-sidebar-active-bg: rgba(95, 202, 211, 0.18);
 
     /* Override the legacy gray scale so pages still using --color-gray-*
        become legible in dark mode (greeting headings, body text, table
@@ -247,6 +285,21 @@
     --color-gray-800: #DBE3E6;
     --color-gray-900: #E6EEF0;
     --color-white:    #15262A;
+}
+
+/* Backfill missing tokens for LIGHT mode too (they were referenced by
+   alert-box.warning/info but never defined → invisible in both themes). */
+:root {
+    --color-primary-50: #EFF6FF;
+    --color-primary-100: #DBEAFE;
+    --color-primary-200: #BFDBFE;
+    --color-primary-700: #1D4ED8;
+    --color-warning-50: #FFFBEB;
+    --color-warning-100: #FEF3C7;
+    --color-warning-200: #FDE68A;
+    --color-warning-700: #B45309;
+    --color-success-100: #D1FAE5;
+    --color-error-100: #FEE2E2;
 }
 
 /* ========================================
