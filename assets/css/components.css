@@ -107,6 +107,49 @@
     color: var(--cnx-accent-hover) !important;
 }
 
+/* ============================================================
+   DARK MODE — fallback overrides for pages with hardcoded white
+   backgrounds (audit_log.php inline <style>, modal-content, etc).
+   These cover legacy "background: white" / "color: #1F2937" rules
+   that bypass our --color-* token system.
+   ============================================================ */
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .filters-card,
+[data-theme="dark"] .audit-table-container,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .data-table {
+    background: var(--cnx-bg-surface) !important;
+    color: var(--cnx-text-primary) !important;
+}
+
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .filter-label,
+[data-theme="dark"] .modal-header h2 {
+    color: var(--cnx-text-primary) !important;
+}
+
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .form-text,
+[data-theme="dark"] .text-muted {
+    color: var(--cnx-text-muted) !important;
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="datetime-local"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border-color: var(--cnx-border) !important;
+}
+
 /* ---------- Utility: section label ---------- */
 .cnx-section-label {
     font-size: var(--cnx-text-caption-size);
