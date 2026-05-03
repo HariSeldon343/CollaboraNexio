@@ -34,8 +34,36 @@
         this.initializeComponents();
         this.setupAjaxDefaults();
         this.loadUserSession();
+        this.initThemeToggle();
         this.ensureSessionTimeout();
         this.ensureLegalNotice();
+    }
+
+    initThemeToggle() {
+        // CNX redesign 2026-05: light/dark theme toggle persisted in localStorage.
+        // Theme is already applied early in loadUserSession(); here we just bind the button.
+        const toggle = document.querySelector('[data-cnx-theme-toggle]');
+        if (!toggle) return;
+        if (toggle.__cnxBound) return;
+        toggle.__cnxBound = true;
+
+        const html = document.documentElement;
+        const apply = (theme) => {
+            const next = theme === 'dark' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+            try {
+                localStorage.setItem('theme', next);
+            } catch (e) { /* storage disabled — silent */ }
+        };
+
+        // Sync initial aria-pressed state with whatever loadUserSession applied.
+        apply(html.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+        toggle.addEventListener('click', () => {
+            const current = html.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            apply(current === 'dark' ? 'light' : 'dark');
+        });
     }
 
     bindEvents() {

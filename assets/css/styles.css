@@ -1591,3 +1591,253 @@ select.form-control {
         text-decoration: underline;
     }
 }
+
+/* ============================================================
+   UI REDESIGN 2026-05 — SHELL (sidebar refresh + theme toggle)
+   Spec: docs/design/direction.md (sezione "Shell")
+   Scoped via [data-cnx-sidebar="true"] to keep legacy rules intact.
+   ============================================================ */
+
+/* Body bg blends with new sidebar (no visible seam) */
+body {
+    background-color: var(--cnx-bg-sidebar);
+}
+
+/* Sidebar — flat teal, no gradient */
+.sidebar[data-cnx-sidebar="true"] {
+    background: var(--cnx-bg-sidebar);
+    color: var(--cnx-text-on-sidebar);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sidebar[data-cnx-sidebar="true"] .sidebar-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar[data-cnx-sidebar="true"] .sidebar-logo {
+    color: var(--cnx-text-on-sidebar);
+    gap: 10px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .logo-img {
+    width: 28px;
+    height: 28px;
+    filter: drop-shadow(0 0 6px rgba(95, 202, 211, 0.18));
+}
+
+.sidebar[data-cnx-sidebar="true"] .logo-text {
+    color: var(--cnx-text-on-sidebar);
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+}
+
+/* Section labels — caption uppercase tracking 0.06em */
+.sidebar[data-cnx-sidebar="true"] .nav-section {
+    margin-bottom: 8px;
+    padding: 0 8px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-section-title {
+    padding: 14px 12px 6px;
+    font-size: var(--cnx-text-caption-size);
+    line-height: var(--cnx-text-caption-line);
+    font-weight: 600;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    color: var(--cnx-text-on-sidebar-muted);
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+/* Nav items — pill, soft hover, accent active */
+.sidebar[data-cnx-sidebar="true"] .nav-item {
+    margin: 0 0 2px;
+    padding: 9px 12px;
+    gap: 12px;
+    color: var(--cnx-text-on-sidebar-muted);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--cnx-radius-md);
+    transition: var(--cnx-transition);
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item:hover {
+    background-color: var(--cnx-bg-sidebar-hover);
+    color: var(--cnx-text-on-sidebar);
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item.active {
+    background-color: var(--cnx-bg-sidebar-active);
+    color: var(--cnx-accent);
+    font-weight: 600;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    height: auto;
+    background-color: var(--cnx-accent);
+    border-radius: 0 3px 3px 0;
+    transform: none;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item .icon {
+    color: currentColor;
+    width: 18px;
+    height: 18px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item .icon::before {
+    width: 18px;
+    height: 18px;
+    background-color: currentColor;
+}
+
+/* Footer — theme toggle + user card */
+.sidebar[data-cnx-sidebar="true"] .sidebar-footer {
+    padding: 12px 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Theme toggle button (sidebar footer) */
+.cnx-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--cnx-bg-sidebar-hover);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--cnx-radius-md);
+    color: var(--cnx-text-on-sidebar-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    width: 100%;
+    transition: var(--cnx-transition);
+    text-align: left;
+}
+
+.cnx-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: var(--cnx-text-on-sidebar);
+}
+
+.cnx-theme-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-theme-toggle__icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+}
+
+.cnx-theme-toggle__icon--moon {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+}
+
+.cnx-theme-toggle__icon--sun {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+}
+
+/* In light mode show moon (click → dark); in dark mode show sun (click → light) */
+html:not([data-theme="dark"]) .cnx-theme-toggle__icon--sun { display: none; }
+html[data-theme="dark"]      .cnx-theme-toggle__icon--moon { display: none; }
+
+.cnx-theme-toggle__label {
+    flex: 1;
+    line-height: 1;
+}
+
+.sidebar.collapsed .cnx-theme-toggle__label {
+    display: none;
+}
+
+.sidebar.collapsed .cnx-theme-toggle {
+    justify-content: center;
+    padding: 8px;
+}
+
+/* User info card refresh */
+.sidebar[data-cnx-sidebar="true"] .user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--cnx-bg-sidebar-hover);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--cnx-radius-md);
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-avatar {
+    width: 36px;
+    height: 36px;
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-name {
+    color: var(--cnx-text-on-sidebar);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-badge {
+    color: var(--cnx-text-on-sidebar-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Main content uses light app background (from tokens) */
+.main-content {
+    background-color: var(--cnx-bg-app);
+}
+
+/* Color transition on theme change */
+html { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }
+
+@media (max-width: 768px) {
+    .sidebar[data-cnx-sidebar="true"] .sidebar-footer {
+        padding: 8px 10px 12px;
+    }
+}
