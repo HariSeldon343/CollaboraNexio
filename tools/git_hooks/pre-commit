@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block obvious secret leaks before they reach git history.
+# Install:
+#   bash tools/git_hooks/install.sh    (Linux/macOS/Git-Bash)
+#   pwsh tools/git_hooks/install.ps1   (Windows PowerShell)
+#
+# Or set the hooks path repo-wide:
+#   git config core.hooksPath tools/git_hooks
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+fail=0
+
+# 1) Hardcoded password literals next to a "Password:" or "password=" marker.
+#    Allows placeholders like <DEMO_SEED_PASSWORD>, <provided separately>, env vars, etc.
+pw_pattern='([Pp]assword[:=]\s*["'"'"'`]?)([A-Za-z0-9!@#$%^&*_+=-]{6,})'
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    [[ "$file" =~ \.(md|txt|html|sql|env|yml|yaml|json|conf|ini|sh|ps1)$ || "$file" =~ \.(php|js|ts|py)$ ]] || continue
+    # Pull only the lines actually being added (start with '+'), skip the diff '+++' header.
+    if git diff --cached -U0 -- "$file" \
+       | awk '/^\+[^+]/' \
+       | grep -E "$pw_pattern" \
+       | grep -vE '<[A-Z_]+>|<provided|getenv\(|\$_ENV|\$\{|password_hash\(|env\(|process\.env' \
+       >/tmp/pre-commit-secrets-$$ 2>/dev/null; then
+        if [ -s /tmp/pre-commit-secrets-$$ ]; then
+            echo "[pre-commit] Possible plaintext password in: $file"
+            sed 's/^/    /' /tmp/pre-commit-secrets-$$
+            fail=1
+        fi
+    fi
+    rm -f /tmp/pre-commit-secrets-$$
+done <<<"$staged"
+
+# 2) Specific known-leaked credentials (defense-in-depth).
+forbidden_strings=(
+    'a.oedoma@gmail.com'
+    'asamodeo@fortibyte.it'
+    'Admin123!'
+)
+for needle in "${forbidden_strings[@]}"; do
+    if git diff --cached -U0 | awk '/^\+[^+]/' | grep -F -q "$needle"; then
+        echo "[pre-commit] Forbidden literal '$needle' detected in staged diff."
+        echo "             If this is intentional (env override, doc placeholder), use a placeholder like <DEMO_SEED_PASSWORD>."
+        fail=1
+    fi
+done
+
+# 3) Refuse to commit obvious credential/dump files by path.
+forbidden_paths='\.env(\..+)?$|^backups/|\.sql\.gz$|^logs/.*\.log$|^\.cursor/|^\.vercel/'
+echo "$staged" | grep -E "$forbidden_paths" >/tmp/pre-commit-paths-$$ 2>/dev/null || true
+if [ -s /tmp/pre-commit-paths-$$ ]; then
+    echo "[pre-commit] Refusing to commit ignored paths:"
+    sed 's/^/    /' /tmp/pre-commit-paths-$$
+    fail=1
+fi
+rm -f /tmp/pre-commit-paths-$$
+
+if [ "$fail" -ne 0 ]; then
+    echo
+    echo "[pre-commit] Commit aborted. Use --no-verify only if you understand the risk."
+    exit 1
+fi
+
+exit 0

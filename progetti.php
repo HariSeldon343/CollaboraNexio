@@ -1,23 +1,35 @@
 <?php
-session_start();
-require_once 'config/config.php';
-require_once 'includes/auth.php';
-
-// Verifica autenticazione
+// Initialize session with proper configuration
+require_once __DIR__ . '/includes/session_init.php';
+// Authentication check - redirect to login if not authenticated
+require_once __DIR__ . '/includes/auth_simple.php';
 $auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: login.php');
+
+if (!$auth->checkAuth()) {
+    header('Location: index.php');
     exit;
 }
 
-$user = $auth->getCurrentUser();
+// Get current user data
+$currentUser = $auth->getCurrentUser();
+if (!$currentUser) {
+    header('Location: index.php');
+    exit;
+}
+
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
+
+// Generate CSRF token for any forms
+$csrfToken = $auth->generateCSRFToken();
 ?>
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Progetti - CollaboraNexio</title>
+    <title>Progetti - Nexio</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -217,7 +229,7 @@ $user = $auth->getCurrentUser();
     </style>
 </head>
 <body>
-    <?php include 'includes/sidebar.php'; ?>
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <div class="content-wrapper" id="contentWrapper">
         <!-- Header -->

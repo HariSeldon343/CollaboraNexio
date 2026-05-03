@@ -1,57 +1,33 @@
 <?php
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+/**
+ * API Endpoint: Create Company (Tenant)
+ * Creates a new company/tenant with all required information
+ *
+ * @version 2.0.0 - Refactored to use centralized api_auth.php
+ */
 
-// Start output buffering to catch any unexpected output
-ob_start();
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
 
-    // Initialize response
-    $response = ['success' => false, 'message' => '', 'data' => null];
+    // Verify authentication
+    verifyApiAuthentication();
 
-    // Check authentication
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato', 'success' => false]));
-    }
+    // Get current user info
+    $userInfo = getApiUserInfo();
 
-    // Get current user details from session
-    $currentUserId = $_SESSION['user_id'];
-    $userRole = $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user';
-    $isSuperAdmin = ($userRole === 'super_admin');
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    // Require super_admin role for creating companies
+    requireApiRole('super_admin');
 
-    // Check if user is super admin
-    if (!$isSuperAdmin) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Solo i Super Admin possono creare aziende', 'success' => false]));
-    }
-
-    // Verify CSRF token from headers
-    $headers = getallheaders();
-    $csrfToken = $headers['X-CSRF-Token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
-    }
+    // Verify CSRF token
+    verifyApiCsrfToken();
 
     // Get input data (support both POST and JSON)
     $input = json_decode(file_get_contents('php://input'), true);
@@ -59,11 +35,13 @@ try {
         $input = $_POST;
     }
 
-    // Validate required fields
-    $requiredFields = ['denominazione', 'codice_fiscale', 'partita_iva', 'sede_legale',
-                        'settore_merceologico', 'numero_dipendenti', 'telefono',
-                        'email_aziendale', 'pec', 'manager_user_id', 'rappresentante_legale',
-                        'data_costituzione', 'plan_type', 'status'];
+    // Validate required fields (aligned with actual DB schema)
+    // Schema uses: email (not email_aziendale), manager_id (not manager_user_id),
+    // sede_legale_indirizzo (not sede_legale), sedi_operative (not sede_operativa)
+    $requiredFields = ['denominazione', 'codice_fiscale', 'partita_iva', 'sede_legale_indirizzo',
+                        'settore_merceologico', 'numero_dipendenti',
+                        'email', 'rappresentante_legale',
+                        'plan_type', 'status'];
 
     $missingFields = [];
     foreach ($requiredFields as $field) {
@@ -73,86 +51,70 @@ try {
     }
 
     if (!empty($missingFields)) {
-        $response['message'] = 'Campi obbligatori mancanti: ' . implode(', ', $missingFields);
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Campi obbligatori mancanti: ' . implode(', ', $missingFields), 400);
     }
 
-    // Get form data
+    // Get form data (aligned with actual database column names)
     $denominazione = trim($input['denominazione']);
     $codiceFiscale = strtoupper(trim($input['codice_fiscale']));
     $partitaIva = trim($input['partita_iva']);
-    $sedeLegale = trim($input['sede_legale']);
-    $sedeOperativa = !empty($input['sede_operativa']) ? trim($input['sede_operativa']) : null;
+    $sedeLegaleIndirizzo = trim($input['sede_legale_indirizzo']);
+    $sedeLegaleComune = !empty($input['sede_legale_comune']) ? trim($input['sede_legale_comune']) : null;
+    $sedeLegaleProvincia = !empty($input['sede_legale_provincia']) ? trim($input['sede_legale_provincia']) : null;
+    $sediOperative = !empty($input['sedi_operative']) ? trim($input['sedi_operative']) : null;
     $settoreMerceologico = $input['settore_merceologico'];
     $numeroDipendenti = intval($input['numero_dipendenti']);
-    $telefono = trim($input['telefono']);
-    $emailAziendale = trim($input['email_aziendale']);
-    $pec = trim($input['pec']);
-    $dataCostituzione = $input['data_costituzione'];
+
+    // Optional fields - set to NULL if not provided
+    $telefono = !empty($input['telefono']) ? trim($input['telefono']) : null;
+    $email = trim($input['email']); // DB column is 'email', not 'email_aziendale'
+    $pec = !empty($input['pec']) ? trim($input['pec']) : null;
     $capitaleSociale = !empty($input['capitale_sociale']) ? floatval($input['capitale_sociale']) : null;
-    $managerUserId = intval($input['manager_user_id']);
+    $managerId = !empty($input['manager_id']) ? intval($input['manager_id']) : null; // DB column is 'manager_id'
     $rappresentanteLegale = trim($input['rappresentante_legale']);
     $planType = $input['plan_type'];
     $status = $input['status'];
 
-    // Generate code from denominazione if not provided
-    $code = !empty($input['code']) ? strtoupper(trim($input['code'])) :
-            strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $denominazione), 0, 10));
+    // Code field was removed from the table, no longer needed
 
     // Validate Codice Fiscale (16 alphanumeric characters)
     if (!preg_match('/^[A-Z0-9]{16}$/', $codiceFiscale)) {
-        $response['message'] = 'Codice Fiscale non valido (16 caratteri alfanumerici)';
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Codice Fiscale non valido (16 caratteri alfanumerici)', 400);
     }
 
     // Validate Partita IVA (11 digits)
     if (!preg_match('/^[0-9]{11}$/', $partitaIva)) {
-        $response['message'] = 'Partita IVA non valida (11 cifre)';
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Partita IVA non valida (11 cifre)', 400);
     }
 
     // Validate email formats
-    if (!filter_var($emailAziendale, FILTER_VALIDATE_EMAIL)) {
-        $response['message'] = 'Email aziendale non valida';
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        apiError('Email aziendale non valida', 400);
     }
 
-    if (!filter_var($pec, FILTER_VALIDATE_EMAIL)) {
-        $response['message'] = 'PEC non valida';
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+    // Validate PEC only if provided
+    if ($pec !== null && !filter_var($pec, FILTER_VALIDATE_EMAIL)) {
+        apiError('PEC non valida', 400);
+    }
+
+    // Validate provincia (2 characters if provided)
+    if ($sedeLegaleProvincia !== null && !preg_match('/^[A-Z]{2}$/', strtoupper($sedeLegaleProvincia))) {
+        apiError('Provincia non valida (2 caratteri)', 400);
+    }
+    if ($sedeLegaleProvincia !== null) {
+        $sedeLegaleProvincia = strtoupper($sedeLegaleProvincia);
     }
 
     // Validate plan type
     $validPlans = ['trial', 'starter', 'professional', 'enterprise'];
     if (!in_array($planType, $validPlans)) {
-        $response['message'] = 'Piano non valido';
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Piano non valido', 400);
     }
 
     // Validate status
     $validStatuses = ['active', 'pending', 'suspended'];
     if (!in_array($status, $validStatuses)) {
-        $response['message'] = 'Stato non valido';
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Stato non valido', 400);
     }
 
     // Get database instance
@@ -161,66 +123,68 @@ try {
 
     // Check if codice fiscale or partita IVA already exist
     $checkStmt = $conn->prepare("SELECT COUNT(*) as count FROM tenants
-                                  WHERE codice_fiscale = :cf OR partita_iva = :piva OR code = :code");
+                                  WHERE codice_fiscale = :cf OR partita_iva = :piva");
     $checkStmt->bindParam(':cf', $codiceFiscale);
     $checkStmt->bindParam(':piva', $partitaIva);
-    $checkStmt->bindParam(':code', $code);
     $checkStmt->execute();
     $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if ($result['count'] > 0) {
-        $response['message'] = 'Codice Fiscale, Partita IVA o codice già esistenti';
-        ob_clean();
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Codice Fiscale o Partita IVA già esistenti', 400);
     }
 
-    // Verify manager exists and has appropriate role
-    if ($managerUserId > 0) {
-        $checkManager = $conn->prepare("SELECT id, role FROM users WHERE id = :id AND role IN ('admin', 'manager')");
-        $checkManager->bindParam(':id', $managerUserId);
+    // Verify manager exists and has appropriate role (only if provided)
+    if ($managerId !== null && $managerId > 0) {
+        $checkManager = $conn->prepare("SELECT id, role FROM users WHERE id = :id AND role IN ('admin', 'manager') AND deleted_at IS NULL");
+        $checkManager->bindParam(':id', $managerId, PDO::PARAM_INT);
         $checkManager->execute();
         if ($checkManager->rowCount() === 0) {
-            $response['message'] = 'Manager selezionato non valido o senza permessi adeguati';
-            ob_clean();
-            http_response_code(400);
-            echo json_encode($response);
-            exit;
+            apiError('Manager selezionato non valido o senza permessi adeguati', 400);
         }
+    } else {
+        // If manager not provided or is 0, set to NULL
+        $managerId = null;
     }
 
-    // Insert new company with all fields
-    $insertQuery = "INSERT INTO tenants (name, denominazione, code, codice_fiscale, partita_iva,
-                    sede_legale, sede_operativa, settore_merceologico, numero_dipendenti,
-                    telefono, email_aziendale, pec, data_costituzione, capitale_sociale,
-                    manager_user_id, rappresentante_legale, status, plan_type,
+    // Prepare settings JSON with plan_type
+    $settings = json_encode(['plan_type' => $planType]);
+
+    // Insert new company with CORRECT column names matching actual database schema
+    // CRITICAL: Using actual DB columns - email (not email_aziendale), manager_id (not manager_user_id),
+    // sede_legale_indirizzo/comune/provincia (not sede_legale), sedi_operative (not sede_operativa)
+    // REMOVED: data_costituzione (does not exist in DB)
+    $insertQuery = "INSERT INTO tenants (name, denominazione, codice_fiscale, partita_iva,
+                    sede_legale_indirizzo, sede_legale_comune, sede_legale_provincia,
+                    sedi_operative, settore_merceologico, numero_dipendenti,
+                    telefono, email, pec, capitale_sociale,
+                    manager_id, rappresentante_legale, status, settings,
                     created_at, updated_at)
-                    VALUES (:name, :denominazione, :code, :codice_fiscale, :partita_iva,
-                    :sede_legale, :sede_operativa, :settore_merceologico, :numero_dipendenti,
-                    :telefono, :email_aziendale, :pec, :data_costituzione, :capitale_sociale,
-                    :manager_user_id, :rappresentante_legale, :status, :plan_type,
+                    VALUES (:name, :denominazione, :codice_fiscale, :partita_iva,
+                    :sede_legale_indirizzo, :sede_legale_comune, :sede_legale_provincia,
+                    :sedi_operative, :settore_merceologico, :numero_dipendenti,
+                    :telefono, :email, :pec, :capitale_sociale,
+                    :manager_id, :rappresentante_legale, :status, :settings,
                     NOW(), NOW())";
 
     $stmt = $conn->prepare($insertQuery);
     $stmt->bindParam(':name', $denominazione); // Use denominazione as name too
     $stmt->bindParam(':denominazione', $denominazione);
-    $stmt->bindParam(':code', $code);
     $stmt->bindParam(':codice_fiscale', $codiceFiscale);
     $stmt->bindParam(':partita_iva', $partitaIva);
-    $stmt->bindParam(':sede_legale', $sedeLegale);
-    $stmt->bindParam(':sede_operativa', $sedeOperativa);
+    $stmt->bindParam(':sede_legale_indirizzo', $sedeLegaleIndirizzo);
+    $stmt->bindParam(':sede_legale_comune', $sedeLegaleComune);
+    $stmt->bindParam(':sede_legale_provincia', $sedeLegaleProvincia);
+    $stmt->bindParam(':sedi_operative', $sediOperative);
     $stmt->bindParam(':settore_merceologico', $settoreMerceologico);
     $stmt->bindParam(':numero_dipendenti', $numeroDipendenti, PDO::PARAM_INT);
-    $stmt->bindParam(':telefono', $telefono);
-    $stmt->bindParam(':email_aziendale', $emailAziendale);
-    $stmt->bindParam(':pec', $pec);
-    $stmt->bindParam(':data_costituzione', $dataCostituzione);
+    $stmt->bindParam(':telefono', $telefono, $telefono === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindParam(':email', $email); // CORRECT: 'email' not 'email_aziendale'
+    $stmt->bindParam(':pec', $pec, $pec === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindParam(':capitale_sociale', $capitaleSociale);
-    $stmt->bindParam(':manager_user_id', $managerUserId, PDO::PARAM_INT);
+    $stmt->bindParam(':manager_id', $managerId, $managerId === null ? PDO::PARAM_NULL : PDO::PARAM_INT); // CORRECT: 'manager_id'
     $stmt->bindParam(':rappresentante_legale', $rappresentanteLegale);
     $stmt->bindParam(':status', $status);
-    $stmt->bindParam(':plan_type', $planType);
+    $stmt->bindParam(':settings', $settings);
 
     if ($stmt->execute()) {
         $companyId = $conn->lastInsertId();
@@ -231,8 +195,8 @@ try {
                          VALUES (:user_id, :tenant_id, 'create', 'company', :entity_id, :description, :ip, NOW())";
 
             $logStmt = $conn->prepare($logQuery);
-            $logStmt->bindParam(':user_id', $currentUserId);
-            $logStmt->bindParam(':tenant_id', $currentTenantId);
+            $logStmt->bindParam(':user_id', $userInfo['user_id']);
+            $logStmt->bindParam(':tenant_id', $userInfo['tenant_id']);
             $logStmt->bindParam(':entity_id', $companyId);
             $description = "Creata nuova azienda: {$denominazione} (CF: {$codiceFiscale})";
             $logStmt->bindParam(':description', $description);
@@ -244,53 +208,25 @@ try {
             error_log('Audit log error: ' . $logError->getMessage());
         }
 
-        // Clean output buffer
-        ob_clean();
-
         // Return success response
-        $response['success'] = true;
-        $response['message'] = 'Azienda creata con successo';
-        $response['data'] = [
+        apiSuccess([
             'id' => $companyId,
             'denominazione' => $denominazione,
             'name' => $denominazione,
-            'code' => $code,
             'codice_fiscale' => $codiceFiscale,
             'partita_iva' => $partitaIva,
             'status' => $status,
             'plan_type' => $planType
-        ];
-        echo json_encode($response);
-        exit();
+        ], 'Azienda creata con successo');
     } else {
-        ob_clean();
-        http_response_code(500);
-        echo json_encode(['error' => 'Errore nella creazione dell\'azienda', 'success' => false]);
-        exit();
+        apiError('Errore nella creazione dell\'azienda', 500);
     }
 
 } catch (PDOException $e) {
-    // Log the actual error for debugging
-    error_log('Companies Create PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database', 'success' => false]);
-    exit();
+    logApiError('Companies Create PDO', $e);
+    apiError('Errore database', 500);
 
 } catch (Exception $e) {
-    // Log the error
-    error_log('Companies Create Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage(), 'success' => false]);
-    exit();
+    logApiError('Companies Create', $e);
+    apiError($e->getMessage(), 500);
 }
-?>

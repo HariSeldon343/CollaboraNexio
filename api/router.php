@@ -5,10 +5,14 @@
  * Gestisce tutte le richieste API e le instrada ai controller appropriati
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+
 // Headers CORS e JSON
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 header('Content-Type: application/json; charset=UTF-8');
 
 // Gestione preflight CORS
@@ -23,13 +27,48 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Parsing del path API
 $request_uri = $_SERVER['REQUEST_URI'];
+$parsed_path = parse_url($request_uri, PHP_URL_PATH);
 $base_path = '/api/';
-$path = str_replace($base_path, '', parse_url($request_uri, PHP_URL_PATH));
+
+// BUG-137 FIX: Check for ?route= parameter first (used by tasks.js fallback)
+// When called as router.php?route=tasks/create, the route is in GET parameter
+$path = '';
+if (isset($_GET['route']) && !empty($_GET['route'])) {
+    // Route passed via query parameter (e.g., router.php?route=tasks/create)
+    $path = trim($_GET['route'], '/');
+    // BUG-138: Log when router receives a query parameter route
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log("[ROUTER] BUG-138 - Received route via query param: '$path'");
+    }
+} else {
+    // Trova la posizione di /api/ nell'URL per supportare installazioni in sottocartelle
+    $pos = strpos($parsed_path, $base_path);
+    if ($pos !== false) {
+        $path = substr($parsed_path, $pos + strlen($base_path));
+    } else {
+        // Fallback se /api/ non è trovato (es. rewrite diretti)
+        $path = ltrim($parsed_path, '/');
+    }
+
+    // BUG-137: If path is router.php, it means we're calling the router directly
+    // without a proper route - this should not happen in normal operation
+    if ($path === 'router.php' || $path === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Route non specificata', 'code' => 'MISSING_ROUTE']);
+        exit;
+    }
+}
+
 $path_parts = explode('/', trim($path, '/'));
 
 $resource = $path_parts[0] ?? '';
 $action = $path_parts[1] ?? '';
 $id = $path_parts[2] ?? null;
+
+// Normalize action (support routes like /api/tasks/create.php when rewrite sends to router.php)
+if (is_string($action) && str_ends_with($action, '.php')) {
+    $action = preg_replace('/\.php$/', '', $action);
+}
 
 // Metodo HTTP
 $method = $_SERVER['REQUEST_METHOD'];
@@ -41,7 +80,12 @@ $current_route = $resource . '/' . $action;
 $auth = new Auth();
 $user = null;
 
-if (!in_array($current_route, $public_routes) && $resource !== 'auth') {
+// Bypass auth check for delegated task endpoints that handle their own authentication
+// This avoids double authentication checks and potential conflicts
+$delegated_task_actions = ['list', 'create', 'update', 'delete', 'assign', 'orphaned'];
+$is_delegated_task = ($resource === 'tasks' && in_array($action, $delegated_task_actions));
+
+if (!$is_delegated_task && !in_array($current_route, $public_routes) && $resource !== 'auth') {
     $user = $auth->getCurrentUser();
     if (!$user) {
         http_response_code(401);
@@ -71,6 +115,9 @@ try {
         // Calendario
         'calendar' => handleCalendar($action, $method, $user, $id),
 
+        // Turni (Work Shifts)
+        'shifts' => handleShifts($action, $method, $user, $id),
+
         // Chat
         'chat' => handleChat($action, $method, $user, $id),
 
@@ -87,7 +134,11 @@ try {
         default => throw new Exception('Risorsa non trovata', 404)
     };
 
-    echo json_encode($response);
+    // If the response contains 'delegated', we don't echo it as JSON
+    // because the included file has already handled the output
+    if (!isset($response['delegated'])) {
+        echo json_encode($response);
+    }
 
 } catch (Exception $e) {
     http_response_code($e->getCode() ?: 500);
@@ -95,6 +146,29 @@ try {
         'error' => $e->getMessage(),
         'code' => $e->getCode() ?: 500
     ]);
+}
+
+/**
+ * Handler Turni (Work Shifts)
+ * Delegates to /api/shifts/*.php endpoints (which handle their own auth/CSRF).
+ */
+function handleShifts(string $action, string $method, ?array $user, ?string $id): array {
+    // Normalize empty action to list
+    $action = $action !== '' ? $action : 'list';
+
+    // Delegate to file-based endpoints (keeps behavior consistent with direct calls)
+    $allowed = ['types', 'list', 'manage', 'requests', 'suggest'];
+    if (!in_array($action, $allowed, true)) {
+        throw new Exception('Azione non valida', 400);
+    }
+
+    $path = __DIR__ . '/shifts/' . $action . '.php';
+    if (!is_file($path)) {
+        throw new Exception('Endpoint non trovato', 404);
+    }
+
+    require_once $path;
+    return ['delegated' => 'shifts/' . $action . '.php'];
 }
 
 /**
@@ -153,8 +227,51 @@ function handleProjects(string $action, string $method, ?array $user, ?string $i
 
 /**
  * Handler Tasks
+ * BUG-138: Added debug logging to track task routing issues
  */
 function handleTasks(string $action, string $method, ?array $user, ?string $id): array {
+    // BUG-138: Debug logging (only in development)
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log("[ROUTER] handleTasks called - action: '$action', method: '$method', id: " . ($id ?? 'null'));
+    }
+
+    // Direct delegation to the specific tasks endpoint
+    // The URL routing in .htaccess or web server might already be directing
+    // /api/tasks/create.php to the file directly, but if it hits router.php:
+
+    if ($action === 'create') {
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[ROUTER] Delegating to tasks/create.php");
+        }
+        require_once __DIR__ . '/tasks/create.php';
+        return ['delegated' => 'tasks/create.php'];
+    }
+    
+    if ($action === 'update') {
+        require_once __DIR__ . '/tasks/update.php';
+        return ['delegated' => 'tasks/update.php'];
+    }
+    
+    if ($action === 'list') {
+        require_once __DIR__ . '/tasks/list.php';
+        return ['delegated' => 'tasks/list.php'];
+    }
+    
+    if ($action === 'delete') {
+        require_once __DIR__ . '/tasks/delete.php';
+        return ['delegated' => 'tasks/delete.php'];
+    }
+    
+    if ($action === 'assign') {
+        require_once __DIR__ . '/tasks/assign.php';
+        return ['delegated' => 'tasks/assign.php'];
+    }
+    
+    if ($action === 'orphaned') {
+        require_once __DIR__ . '/tasks/orphaned.php';
+        return ['delegated' => 'tasks/orphaned.php'];
+    }
+
     global $pdo;
     $tenant_id = $user['tenant_id'];
     $user_id = $user['id'];
@@ -372,7 +489,7 @@ function performLogin(array $data): array {
         SELECT u.*, t.name as tenant_name
         FROM users u
         JOIN tenants t ON u.tenant_id = t.id
-        WHERE u.email = ? AND u.status = 'active'
+        WHERE u.email = ? AND u.is_active = 1
     ");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -389,9 +506,7 @@ function performLogin(array $data): array {
         'exp' => time() + 3600
     ]));
 
-    // Salva sessione
-    session_start();
-    $_SESSION['user'] = $user;
+    // Salva sessione$_SESSION['user'] = $user;
     $_SESSION['token'] = $token;
 
     return [
@@ -400,7 +515,7 @@ function performLogin(array $data): array {
         'user' => [
             'id' => $user['id'],
             'email' => $user['email'],
-            'display_name' => $user['display_name'],
+            'name' => $user['name'],
             'role' => $user['role'],
             'tenant_name' => $user['tenant_name']
         ]
@@ -434,10 +549,11 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
     $tasks = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Files
+    // Schema: files table uses file_size (not size_bytes)
     $stmt = $pdo->prepare("
         SELECT
             COUNT(*) as total,
-            SUM(size_bytes) as total_size
+            SUM(file_size) as total_size
         FROM files
         WHERE tenant_id = ?
     ");
@@ -448,7 +564,7 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as total
         FROM users
-        WHERE tenant_id = ? AND status = 'active'
+        WHERE tenant_id = ? AND is_active = 1
     ");
     $stmt->execute([$tenant_id]);
     $users = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -465,7 +581,7 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
 function getTasksList(int $tenant_id, int $user_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT t.*, p.name as project_name, u.display_name as assigned_to_name
+        SELECT t.*, p.name as project_name, u.name as assigned_to_name
         FROM tasks t
         LEFT JOIN projects p ON t.project_id = p.id
         LEFT JOIN users u ON t.assigned_to = u.id
@@ -480,11 +596,12 @@ function getTasksList(int $tenant_id, int $user_id): array {
 function getCalendarEvents(int $tenant_id, int $user_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT e.*, u.display_name as organizer_name
-        FROM calendar_events e
+        SELECT e.*, u.name as organizer_name
+        FROM events e
         LEFT JOIN users u ON e.organizer_id = u.id
         WHERE e.tenant_id = ?
-        AND e.start_datetime >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+          AND e.deleted_at IS NULL
+          AND e.start_datetime >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
         ORDER BY e.start_datetime ASC
     ");
     $stmt->execute([$tenant_id]);
@@ -494,10 +611,10 @@ function getCalendarEvents(int $tenant_id, int $user_id): array {
 function getUsersList(int $tenant_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT id, email, display_name, role, status, department, position, last_login_at
+        SELECT id, email, name, role, status, department, position, last_login_at
         FROM users
         WHERE tenant_id = ?
-        ORDER BY display_name ASC
+        ORDER BY name ASC
     ");
     $stmt->execute([$tenant_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

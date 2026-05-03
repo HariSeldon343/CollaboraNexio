@@ -50,12 +50,12 @@ function output($message, $type = 'info') {
 
 // Start output
 if (!$isCLI) {
-    echo "<!DOCTYPE html><html><head><title>CollaboraNexio - Database Setup</title></head><body style='background: #f5f5f5; padding: 20px;'>";
-    echo "<h1>CollaboraNexio Database Initialization</h1>";
+    echo "<!DOCTYPE html><html><head><title>Nexio - Database Setup</title></head><body style='background: #f5f5f5; padding: 20px;'>";
+    echo "<h1>Nexio Database Initialization</h1>";
 }
 
 output("=========================================", 'info');
-output("CollaboraNexio Database Initialization", 'info');
+output("Nexio Database Initialization", 'info');
 output("=========================================", 'info');
 
 try {
@@ -278,8 +278,20 @@ try {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
-    // Password hash for 'Admin123!'
-    $passwordHash = password_hash('Admin123!', PASSWORD_DEFAULT);
+    // Password hash for the demo seed.
+    // Reads DEMO_SEED_PASSWORD env var; refuses to fall back to a hardcoded default
+    // when the host looks like production. Set the env var explicitly to seed.
+    $seedPassword = getenv('DEMO_SEED_PASSWORD') ?: '';
+    $isProduction = (defined('PRODUCTION_MODE') && PRODUCTION_MODE)
+        || (getenv('ENVIRONMENT') === 'production')
+        || (($_SERVER['HTTP_HOST'] ?? '') === 'app.nexiosolution.it');
+    if ($seedPassword === '') {
+        if ($isProduction) {
+            throw new RuntimeException('DEMO_SEED_PASSWORD must be set explicitly when seeding in production');
+        }
+        $seedPassword = 'Admin123!'; // dev-only fallback; never commit real prod passwords
+    }
+    $passwordHash = password_hash($seedPassword, PASSWORD_DEFAULT);
 
     $users = [
         // Tenant 1 users
@@ -352,7 +364,7 @@ try {
 
     output("\nTest Credentials:", 'info');
     output("  Email: admin@demo.local", 'info');
-    output("  Password: Admin123!", 'info');
+    output("  Password: <value of DEMO_SEED_PASSWORD>", 'info');
     output("  (All test users use the same password)", 'info');
 
     output("\nNext Steps:", 'warning');

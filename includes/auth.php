@@ -11,7 +11,7 @@ require_once __DIR__ . '/db.php';
 
 class Auth {
     private PDO $pdo;
-    private const SESSION_LIFETIME = 1800; // 30 minuti in secondi
+    private const SESSION_LIFETIME = 300; // 5 minuti in secondi
     private const MAX_LOGIN_ATTEMPTS = 5;
     private const LOCKOUT_TIME = 900; // 15 minuti in secondi
 
@@ -25,24 +25,8 @@ class Auth {
      */
     private function initializeSession(): void {
         if (session_status() === PHP_SESSION_NONE) {
-            // Configurazione sicura della sessione
-            ini_set('session.use_only_cookies', '1');
-            ini_set('session.use_strict_mode', '1');
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.cookie_secure', '1');
-            ini_set('session.cookie_samesite', 'Strict');
-            ini_set('session.gc_maxlifetime', (string)self::SESSION_LIFETIME);
-
-            session_set_cookie_params([
-                'lifetime' => 0,
-                'path' => '/',
-                'domain' => '',
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'Strict'
-            ]);
-
-            session_start();
+            // Usa il file di inizializzazione centralizzato delle sessioni
+            require_once __DIR__ . '/session_init.php';
         }
 
         // Verifica timeout sessione
@@ -108,6 +92,15 @@ class Auth {
 
             if (!$user) {
                 $this->recordLoginAttempt($email, false);
+
+                // Audit log - Track failed login (user not found)
+                try {
+                    require_once __DIR__ . '/audit_helper.php';
+                    AuditLogger::logLogin(0, 0, false, 'User not found');
+                } catch (Exception $e) {
+                    error_log("[AUDIT LOG FAILURE] Failed login tracking failed: " . $e->getMessage());
+                }
+
                 return ['success' => false, 'message' => 'Credenziali non valide'];
             }
 
@@ -119,6 +112,15 @@ class Auth {
             // Verifica password
             if (!password_verify($password, $user['password_hash'])) {
                 $this->recordLoginAttempt($email, false, $user['id'], $user['tenant_id']);
+
+                // Audit log - Track failed login (invalid password)
+                try {
+                    require_once __DIR__ . '/audit_helper.php';
+                    AuditLogger::logLogin($user['id'], $user['tenant_id'], false, 'Invalid password');
+                } catch (Exception $e) {
+                    error_log("[AUDIT LOG FAILURE] Failed login tracking failed: " . $e->getMessage());
+                }
+
                 return ['success' => false, 'message' => 'Credenziali non valide'];
             }
 
@@ -138,7 +140,8 @@ class Auth {
             // Imposta variabili di sessione
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['tenant_id'] = $user['tenant_id'];
-            $_SESSION['role'] = $user['role'];  // Cambiato da user_role a role
+            $_SESSION['role'] = $user['role'];  // Campo principale per il ruolo
+            $_SESSION['user_role'] = $user['role'];  // Mantenuto per retrocompatibilità
             $_SESSION['user_name'] = trim($user['first_name'] . ' ' . $user['last_name']);
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['login_time'] = time();
@@ -160,6 +163,14 @@ class Auth {
 
             // Registra accesso nei log
             $this->logActivity($user['id'], $user['tenant_id'], 'login', 'Login effettuato con successo');
+
+            // Audit log - Track successful login
+            try {
+                require_once __DIR__ . '/audit_helper.php';
+                AuditLogger::logLogin($user['id'], $user['tenant_id'], true);
+            } catch (Exception $e) {
+                error_log("[AUDIT LOG FAILURE] Login tracking failed: " . $e->getMessage());
+            }
 
             // Registra tentativo riuscito
             $this->recordLoginAttempt($email, true, $user['id'], $user['tenant_id']);
@@ -198,12 +209,22 @@ class Auth {
             // Invalida il cookie di sessione
             if (ini_get('session.use_cookies')) {
                 $params = session_get_cookie_params();
+
+                // Determina il dominio del cookie basato sull'ambiente
+                $cookieDomain = $params['domain'];
+                if (empty($cookieDomain)) {
+                    $currentHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    if (strpos($currentHost, 'nexiosolution.it') !== false) {
+                        $cookieDomain = '.nexiosolution.it';
+                    }
+                }
+
                 setcookie(
                     session_name(),
                     '',
                     time() - 42000,
                     $params['path'],
-                    $params['domain'],
+                    $cookieDomain,
                     $params['secure'],
                     $params['httponly']
                 );
@@ -234,9 +255,12 @@ class Auth {
      */
     public function checkAuth(): bool {
         // Verifica presenza variabili di sessione essenziali
-        if (!isset($_SESSION['user_id']) ||
-            !isset($_SESSION['tenant_id']) ||
-            !isset($_SESSION['role'])) {
+        // NOTE: super_admin può operare anche senza tenant_id (bypass tenant isolation)
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+            return false;
+        }
+        $role = (string)($_SESSION['role'] ?? '');
+        if ($role !== 'super_admin' && !isset($_SESSION['tenant_id'])) {
             return false;
         }
 
@@ -289,16 +313,119 @@ class Auth {
         }
 
         try {
+            // Migration/schema compatibility: some DBs use users.name (no first_name/last_name),
+            // and some use users.is_active instead of users.status. Detect columns before querying.
+            $hasFirstName = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'first_name'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasLastName = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'last_name'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasAvatarUrl = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'avatar_url'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasName = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'name'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasStatus = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'status'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasIsActive = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'is_active'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasUsersDeletedAt = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'deleted_at'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasTenantsStatus = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'tenants'
+                   AND COLUMN_NAME = 'status'
+                 LIMIT 1"
+            )->fetchColumn();
+            $hasTenantsDeletedAt = (bool)$this->pdo->query(
+                "SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'tenants'
+                   AND COLUMN_NAME = 'deleted_at'
+                 LIMIT 1"
+            )->fetchColumn();
+
+            $nameSelect = '';
+            if ($hasFirstName && $hasLastName) {
+                $nameSelect = "u.first_name, u.last_name";
+            } elseif ($hasFirstName) {
+                $nameSelect = "u.first_name, '' AS last_name";
+            } elseif ($hasLastName) {
+                $nameSelect = "'' AS first_name, u.last_name";
+            } elseif ($hasName) {
+                // Keep keys consistent for downstream code
+                $nameSelect = "'' AS first_name, '' AS last_name, u.name AS name";
+            } else {
+                $nameSelect = "'' AS first_name, '' AS last_name, '' AS name";
+            }
+
+            $avatarSelect = $hasAvatarUrl ? "u.avatar_url as avatar" : "'' AS avatar";
+
+            $whereActive = '';
+            if ($hasStatus) {
+                $whereActive = "AND u.status = 'active'";
+            } elseif ($hasIsActive) {
+                $whereActive = "AND u.is_active = 1";
+            }
+
+            $whereUsersDeleted = $hasUsersDeletedAt ? "AND u.deleted_at IS NULL" : "";
+
+            $isSuperAdminSession = (($_SESSION['role'] ?? '') === 'super_admin') || (($_SESSION['user_role'] ?? '') === 'super_admin');
+            $whereTenantActive = ($hasTenantsStatus && !$isSuperAdminSession) ? "AND t.status = 'active'" : "";
+            $whereTenantDeleted = ($hasTenantsDeletedAt && !$isSuperAdminSession) ? "AND t.deleted_at IS NULL" : "";
+
+            // LEFT JOIN so super_admin can operate even when tenant is missing
             $stmt = $this->pdo->prepare("
-                SELECT u.id, u.first_name, u.last_name, u.email, u.role,
-                       u.avatar_url as avatar, u.tenant_id,
-                       t.name as tenant_name
+                SELECT
+                    u.id,
+                    {$nameSelect},
+                    u.email,
+                    u.role,
+                    {$avatarSelect},
+                    u.tenant_id,
+                    t.name as tenant_name
                 FROM users u
-                INNER JOIN tenants t ON u.tenant_id = t.id
+                LEFT JOIN tenants t ON u.tenant_id = t.id
                 WHERE u.id = :user_id
-                AND u.status = 'active'
-                AND u.deleted_at IS NULL
-                AND t.status = 'active'
+                {$whereActive}
+                {$whereUsersDeleted}
+                {$whereTenantActive}
+                {$whereTenantDeleted}
+                LIMIT 1
             ");
 
             $stmt->execute([':user_id' => $_SESSION['user_id']]);
@@ -309,8 +436,19 @@ class Auth {
                 return null;
             }
 
-            // Aggiungi il nome completo
-            $user['name'] = trim($user['first_name'] . ' ' . $user['last_name']);
+            // Aggiungi il nome completo (supporta sia first_name/last_name sia name)
+            $existingName = isset($user['name']) ? trim((string)$user['name']) : '';
+            if ($existingName === '') {
+                $user['name'] = trim((string)($user['first_name'] ?? '') . ' ' . (string)($user['last_name'] ?? ''));
+            } else {
+                $user['name'] = $existingName;
+            }
+
+            // If tenant missing and not super_admin -> treat as invalid session
+            if (($user['role'] ?? '') !== 'super_admin' && empty($user['tenant_id'])) {
+                $this->logout();
+                return null;
+            }
 
             // Aggiungi informazioni multi-tenant se disponibili
             if (isset($_SESSION['is_multi_tenant']) && $_SESSION['is_multi_tenant']) {
@@ -393,7 +531,9 @@ class Auth {
             // Aggiorna sessione con nuovo tenant
             $oldTenantId = $_SESSION['tenant_id'];
             $_SESSION['tenant_id'] = $tenantId;
-            $_SESSION['role'] = $access['role'] ?? $_SESSION['role'];
+            $newRole = $access['role'] ?? $_SESSION['role'];
+            $_SESSION['role'] = $newRole;
+            $_SESSION['user_role'] = $newRole;  // Mantenuto per retrocompatibilità
 
             // Registra il cambio nei log
             $this->logActivity(

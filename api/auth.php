@@ -2,9 +2,8 @@
 // Initialize session with proper configuration
 require_once dirname(__DIR__) . '/includes/session_init.php';
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+// IMPORTANT: do not enable permissive CORS on auth endpoints.
+// This API is same-origin and uses session cookies.
 
 // Handle OPTIONS request for CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -32,11 +31,23 @@ if (empty($action)) {
 }
 
 if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Leggi il JSON dal body
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Read JSON body (primary) or fall back to form-encoded (for compatibility)
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode($rawBody, true);
 
-    $email = $input['email'] ?? '';
-    $password = $input['password'] ?? '';
+    // Fallback: form-urlencoded / multipart
+    if (!is_array($input)) {
+        if (!empty($_POST)) {
+            $input = $_POST;
+        } else {
+            $form = [];
+            parse_str((string)$rawBody, $form);
+            $input = $form;
+        }
+    }
+
+    $email = (string)($input['email'] ?? '');
+    $password = (string)($input['password'] ?? '');
 
     // Validazione base
     if (empty($email) || empty($password)) {
@@ -50,40 +61,122 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $db = Database::getInstance();
         $pdo = $db->getConnection();
 
-        // Cerca l'utente
+        // Cerca l'utente (con LEFT JOIN per supportare utenti senza tenant)
+        // CRITICAL FIX: Added deleted_at IS NULL check to prevent soft-deleted users from logging in
         $stmt = $pdo->prepare("
-            SELECT u.*, t.name as tenant_name, t.code as tenant_code
+            SELECT u.*, t.name as tenant_name, t.code as tenant_code, t.status as tenant_status
             FROM users u
-            JOIN tenants t ON u.tenant_id = t.id
-            WHERE u.email = ? AND u.is_active = 1
+            LEFT JOIN tenants t ON u.tenant_id = t.id
+            WHERE u.email = ? AND u.is_active = 1 AND u.deleted_at IS NULL
         ");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password_hash'])) {
+            // Check if password has expired (90-day policy)
+            if (!empty($user['password_expires_at'])) {
+                $expiryDate = strtotime($user['password_expires_at']);
+                $now = time();
+
+                if ($expiryDate < $now) {
+                    // Password expired - redirect to change password
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false,
+                        'password_expired' => true,
+                        'message' => 'La tua password è scaduta. Devi cambiarla prima di accedere.',
+                        'redirect' => 'change_password.php?user_id=' . $user['id']
+                    ]);
+                    exit;
+                }
+
+                // Warn if password expires soon (within 7 days)
+                $daysUntilExpiry = floor(($expiryDate - $now) / 86400);
+                if ($daysUntilExpiry <= 7 && $daysUntilExpiry > 0) {
+                    $user['password_expiry_warning'] = "La tua password scadrà tra $daysUntilExpiry giorni";
+                }
+            }
+            // Check if user can login based on role and tenant assignment.
+            //
+            // NOTE: We intentionally DO NOT call any stored procedure (e.g. CheckUserLoginAccess) here.
+            // In some deployments that procedure can be missing/broken/slow and can cause the login request
+            // to hang, freezing the UI on index.php. Keep the logic here deterministic and fast.
+            $canLogin = true;
+            $loginMessage = '';
+
+            if (in_array($user['role'], ['super_admin', 'admin'], true)) {
+                // Admin and Super Admin can always login (even without tenant_id)
+                $canLogin = true;
+            } elseif (empty($user['tenant_id'])) {
+                // Regular users and managers need a tenant
+                $canLogin = false;
+                $loginMessage = 'Il tuo account non è associato a nessuna azienda. Contatta l\'amministratore.';
+            } elseif (($user['tenant_status'] ?? null) !== 'active') {
+                // Tenant must be active
+                $canLogin = false;
+                $loginMessage = 'L\'azienda associata al tuo account non è attiva.';
+            }
+
+            if (!$canLogin) {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => $loginMessage ?: 'Accesso non consentito'
+                ]);
+                exit;
+            }
+
             // Login riuscito
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
+            // Keep both keys in sync (some parts of the app read role, others user_role)
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['role'] = $user['role'];
             $_SESSION['tenant_id'] = $user['tenant_id'];
-            $_SESSION['tenant_name'] = $user['tenant_name'];
+            $_SESSION['tenant_name'] = $user['tenant_name'] ?? 'No Company';
+            // Keep session activity fresh after a successful login (avoid immediate timeout edge-cases)
+            $_SESSION['last_activity'] = time();
+
+            // For admin/super_admin with multiple tenant access, get accessible tenants
+            if (in_array($user['role'], ['admin', 'super_admin'])) {
+                $tenantStmt = $pdo->prepare("
+                    SELECT DISTINCT t.id, t.name
+                    FROM tenants t
+                    LEFT JOIN user_tenant_access uta ON t.id = uta.tenant_id
+                    WHERE (uta.user_id = ? OR ? = 'super_admin')
+                    AND t.status = 'active'
+                    ORDER BY t.name
+                ");
+                $tenantStmt->execute([$user['id'], $user['role']]);
+                $_SESSION['accessible_tenants'] = $tenantStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
 
             // Aggiorna last_login
             $updateStmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
             $updateStmt->execute([$user['id']]);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'message' => 'Login effettuato con successo',
+                'redirect' => 'dashboard.php',
                 'user' => [
                     'id' => $user['id'],
                     'name' => $user['name'],
                     'email' => $user['email'],
                     'role' => $user['role'],
-                    'tenant' => $user['tenant_name']
+                    'tenant' => $user['tenant_name'] ?? 'No Company',
+                    'has_tenant' => !empty($user['tenant_id']),
+                    'accessible_tenants' => $_SESSION['accessible_tenants'] ?? []
                 ]
-            ]);
+            ];
+
+            // Add password expiry warning if present
+            if (!empty($user['password_expiry_warning'])) {
+                $response['warning'] = $user['password_expiry_warning'];
+            }
+
+            echo json_encode($response);
         } else {
             // Login fallito
             http_response_code(401);

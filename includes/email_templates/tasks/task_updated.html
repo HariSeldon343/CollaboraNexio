@@ -1,0 +1,43 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">Un task a cui sei assegnato è stato modificato.</p>
+
+{{#TENANT_NAME}}
+<p style="margin:0 0 14px 0;color:#374151;"><strong>Azienda:</strong> {{TENANT_NAME}}</p>
+{{/TENANT_NAME}}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0 0 8px 0;font-weight:600;color:#111827;">Task</div>
+    <div style="margin:0;color:#374151;">
+      <div><strong>Titolo:</strong> {{TASK_TITLE}}</div>
+      {{#UPDATED_BY_NAME}}<div style="margin-top:6px;"><strong>Modificato da:</strong> {{UPDATED_BY_NAME}}</div>{{/UPDATED_BY_NAME}}
+      {{#UPDATE_TIME}}<div><strong>Data/Ora:</strong> {{UPDATE_TIME}}</div>{{/UPDATE_TIME}}
+    </div>
+  </td></tr>
+</table>
+
+{{#HAS_CHANGES}}
+<div style="margin:12px 0 0 0;padding:12px;border:1px solid #eef0f3;border-radius:8px;color:#374151;background:#ffffff;">
+  <div style="font-weight:600;margin:0 0 8px 0;color:#111827;">Modifiche</div>
+
+  {{#TITLE_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Titolo:</strong> {{OLD_TITLE}} → {{NEW_TITLE}}</div>{{/TITLE_CHANGED}}
+  {{#DESCRIPTION_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Descrizione:</strong> aggiornata</div>{{/DESCRIPTION_CHANGED}}
+  {{#STATUS_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Stato:</strong> {{OLD_STATUS}} → {{NEW_STATUS}}</div>{{/STATUS_CHANGED}}
+  {{#PRIORITY_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Priorità:</strong> {{OLD_PRIORITY}} → {{NEW_PRIORITY}}</div>{{/PRIORITY_CHANGED}}
+  {{#DUE_DATE_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Scadenza:</strong> {{OLD_DUE_DATE}} → {{NEW_DUE_DATE}}</div>{{/DUE_DATE_CHANGED}}
+  {{#ESTIMATED_HOURS_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Stima ore:</strong> {{OLD_ESTIMATED_HOURS}}h → {{NEW_ESTIMATED_HOURS}}h</div>{{/ESTIMATED_HOURS_CHANGED}}
+  {{#PROGRESS_CHANGED}}<div style="margin:0 0 6px 0;"><strong>Progresso:</strong> {{OLD_PROGRESS}}% → {{NEW_PROGRESS}}%</div>{{/PROGRESS_CHANGED}}
+</div>
+{{/HAS_CHANGES}}
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{TASK_URL}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Apri task</a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+  Link diretto: <a href="{{TASK_URL}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{TASK_URL}}</a>
+</p>

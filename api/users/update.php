@@ -2,66 +2,44 @@
 /**
  * API Endpoint: Update User
  * Updates an existing user's information
+ *
+ * @version 2.0.0 - Refactored to use centralized api_auth.php
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Check request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        ob_clean();
-        http_response_code(405);
-        die(json_encode(['error' => 'Metodo non consentito']));
+        apiError('Metodo non consentito', 405);
     }
 
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
     // Get current user info
-    $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['role'] ?? 'user';
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $currentTenantId = $userInfo['tenant_id'];
+
+    // Verify CSRF token
+    verifyApiCsrfToken();
 
     // Only admins can update users (or users can update themselves)
     $userId = intval($_POST['user_id'] ?? 0);
     $isSelfUpdate = ($userId === $currentUserId);
 
-    if (!$isSelfUpdate && !in_array($currentUserRole, ['super_admin', 'tenant_admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non hai i permessi per modificare utenti']));
-    }
-
-    // CSRF validation
-    $csrfToken = $_POST['csrf_token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+    if (!$isSelfUpdate && !hasApiRole('admin')) {
+        apiError('Non hai i permessi per modificare utenti', 403);
     }
 
     // Get and validate input
@@ -70,6 +48,18 @@ try {
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? null;
     $tenantId = intval($_POST['tenant_id'] ?? $currentTenantId);
+
+    // TENANT_ROLES: Get tenant_role_id parameter (use -1 to indicate "remove role")
+    $tenantRoleId = null;
+    $removeTenantRole = false;
+    if (isset($_POST['tenant_role_id'])) {
+        $tenantRoleIdInput = intval($_POST['tenant_role_id']);
+        if ($tenantRoleIdInput === -1 || $_POST['tenant_role_id'] === 'null' || $_POST['tenant_role_id'] === '') {
+            $removeTenantRole = true;
+        } elseif ($tenantRoleIdInput > 0) {
+            $tenantRoleId = $tenantRoleIdInput;
+        }
+    }
 
     // Validation
     $errors = [];
@@ -101,9 +91,7 @@ try {
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'details' => $errors]));
+        apiError('Errori di validazione', 400, ['details' => $errors]);
     }
 
     // Get database instance
@@ -125,9 +113,37 @@ try {
     $existingUser = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$existingUser) {
-        ob_clean();
-        http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        apiError('Utente non trovato', 404);
+    }
+
+    // TENANT_ROLES: Validate tenant_role_id if provided
+    // Use existing user's tenant unless super_admin is changing it
+    $validatedTenantRoleId = null;
+    $targetUserTenantId = (int)$existingUser['tenant_id'];
+    if ($currentUserRole === 'super_admin' && $tenantId !== (int)$existingUser['tenant_id']) {
+        $targetUserTenantId = $tenantId;
+    }
+
+    if ($tenantRoleId !== null) {
+        // Verify role exists, belongs to same tenant, is active, and not deleted
+        $roleCheckQuery = "
+            SELECT id FROM tenant_roles
+            WHERE id = :role_id
+              AND tenant_id = :tenant_id
+              AND is_active = 1
+              AND deleted_at IS NULL
+        ";
+        $roleCheckStmt = $conn->prepare($roleCheckQuery);
+        $roleCheckStmt->bindParam(':role_id', $tenantRoleId, PDO::PARAM_INT);
+        $roleCheckStmt->bindParam(':tenant_id', $targetUserTenantId, PDO::PARAM_INT);
+        $roleCheckStmt->execute();
+        $validRole = $roleCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$validRole) {
+            apiError('Ruolo aziendale non valido o non appartiene a questa azienda', 400);
+        }
+
+        $validatedTenantRoleId = (int)$tenantRoleId;
     }
 
     // Check if email is being changed and if new email already exists
@@ -140,9 +156,7 @@ try {
         $emailExists = $emailCheckStmt->fetch(PDO::FETCH_ASSOC)['count'] > 0;
 
         if ($emailExists) {
-            ob_clean();
-            http_response_code(409);
-            die(json_encode(['error' => 'Email già utilizzata da un altro utente']));
+            apiError('Email già utilizzata da un altro utente', 409);
         }
     }
 
@@ -166,15 +180,11 @@ try {
         $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$tenant) {
-            ob_clean();
-            http_response_code(404);
-            die(json_encode(['error' => 'Azienda non trovata']));
+            apiError('Azienda non trovata', 404);
         }
 
         if (!in_array($tenant['status'], ['active', 'trial'])) {
-            ob_clean();
-            http_response_code(400);
-            die(json_encode(['error' => 'Azienda non attiva']));
+            apiError('Azienda non attiva', 400);
         }
 
         $updateFields[] = 'tenant_id = :tenant_id';
@@ -207,42 +217,139 @@ try {
     }
 
     if (!$updateStmt->execute()) {
-        ob_clean();
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nell\'aggiornamento dell\'utente']));
+        apiError('Errore nell\'aggiornamento dell\'utente', 500);
     }
 
-    // Clean any output buffer
-    ob_clean();
+    // TENANT_ROLES: Update or create user_tenant_access record with tenant_role_id
+    if ($validatedTenantRoleId !== null || $removeTenantRole) {
+        $effectiveTenantId = isset($params[':tenant_id']) ? $tenantId : (int)$existingUser['tenant_id'];
+
+        // Check if user_tenant_access record already exists
+        $utaCheckQuery = "
+            SELECT id, tenant_role_id FROM user_tenant_access
+            WHERE user_id = :user_id
+              AND tenant_id = :tenant_id
+              AND deleted_at IS NULL
+        ";
+        $utaCheckStmt = $conn->prepare($utaCheckQuery);
+        $utaCheckStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+        $utaCheckStmt->bindParam(':tenant_id', $effectiveTenantId, PDO::PARAM_INT);
+        $utaCheckStmt->execute();
+        $existingUta = $utaCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingUta) {
+            // Update existing record (set to NULL if removing role)
+            if ($removeTenantRole) {
+                $utaUpdateQuery = "
+                    UPDATE user_tenant_access
+                    SET tenant_role_id = NULL,
+                        updated_at = NOW()
+                    WHERE id = :uta_id
+                ";
+                $utaUpdateStmt = $conn->prepare($utaUpdateQuery);
+                $utaUpdateStmt->bindParam(':uta_id', $existingUta['id'], PDO::PARAM_INT);
+                $utaUpdateStmt->execute();
+            } else {
+                $utaUpdateQuery = "
+                    UPDATE user_tenant_access
+                    SET tenant_role_id = :tenant_role_id,
+                        updated_at = NOW()
+                    WHERE id = :uta_id
+                ";
+                $utaUpdateStmt = $conn->prepare($utaUpdateQuery);
+                $utaUpdateStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+                $utaUpdateStmt->bindParam(':uta_id', $existingUta['id'], PDO::PARAM_INT);
+                $utaUpdateStmt->execute();
+            }
+        } elseif (!$removeTenantRole && $validatedTenantRoleId !== null) {
+            // Create new user_tenant_access record only if we're assigning a role
+            $utaInsertQuery = "
+                INSERT INTO user_tenant_access (
+                    user_id,
+                    tenant_id,
+                    tenant_role_id,
+                    granted_by,
+                    granted_at,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    :user_id,
+                    :tenant_id,
+                    :tenant_role_id,
+                    :granted_by,
+                    NOW(),
+                    NOW(),
+                    NOW()
+                )
+            ";
+            $utaInsertStmt = $conn->prepare($utaInsertQuery);
+            $utaInsertStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_id', $effectiveTenantId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':granted_by', $currentUserId, PDO::PARAM_INT);
+            $utaInsertStmt->execute();
+        }
+    }
+
+    // Audit log - Track user update
+    try {
+        require_once '../../includes/audit_helper.php';
+
+        // Build old/new values for comparison
+        $oldValues = [
+            'name' => $existingUser['name'] ?? '',
+            'email' => $existingUser['email'],
+            'role' => $existingUser['role'],
+            'tenant_id' => $existingUser['tenant_id']
+        ];
+
+        $newValues = [
+            'name' => $name,
+            'email' => $email
+        ];
+
+        if (isset($params[':role'])) {
+            $newValues['role'] = $role;
+        }
+        if (isset($params[':tenant_id'])) {
+            $newValues['tenant_id'] = $tenantId;
+        }
+        if (!empty($password)) {
+            $newValues['password'] = '[CHANGED]';
+            $oldValues['password'] = '[REDACTED]';
+        }
+
+        // TENANT_ROLES: Track tenant_role_id changes
+        if ($validatedTenantRoleId !== null) {
+            $newValues['tenant_role_id'] = $validatedTenantRoleId;
+        } elseif ($removeTenantRole) {
+            $newValues['tenant_role_id'] = null;
+        }
+
+        AuditLogger::logUpdate(
+            $currentUserId,
+            $currentTenantId,
+            'user',
+            $userId,
+            "Updated user: $email",
+            $oldValues,
+            $newValues,
+            !empty($password) ? 'warning' : 'info'
+        );
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] User update tracking failed: " . $e->getMessage());
+    }
 
     // Success response
-    echo json_encode([
-        'success' => true,
-        'message' => 'Utente aggiornato con successo'
-    ]);
-    exit();
+    apiSuccess(null, 'Utente aggiornato con successo');
 
 } catch (PDOException $e) {
     // Log the actual error for debugging
-    error_log('Update User PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database']);
-    exit();
+    logApiError('Update User PDO', $e);
+    apiError('Errore database', 500);
 
 } catch (Exception $e) {
     // Log the error
-    error_log('Update User Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore interno del server']);
-    exit();
+    logApiError('Update User', $e);
+    apiError('Errore interno del server', 500);
 }

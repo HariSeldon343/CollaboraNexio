@@ -17,6 +17,20 @@ if (!$currentUser) {
     header('Location: index.php');
     exit;
 }
+// BUG-144 FIX: Removed active_tenant_id fallback (column does not exist)
+// tenant_id is the only valid source
+
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
+
+// Enforce Page Visibility access rules (configurazioni.php -> Visibilità Pagine)
+require_once __DIR__ . '/includes/page_access_check.php';
+checkPageAccess('dashboard');
+
+// Track page access for audit logging
+require_once __DIR__ . '/includes/audit_page_access.php';
+trackPageAccess('dashboard');
 
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
@@ -27,15 +41,14 @@ $csrfToken = $auth->generateCSRFToken();
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Dashboard - CollaboraNexio</title>
+<?php
+    $pageTitle = 'Dashboard - Nexio';
+    $pageCss = ['assets/css/dashboard.css?v=' . (time() . '_v2')];
+    require __DIR__ . '/includes/layout_head.php';
 
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Page specific CSS -->
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+    // Cache-bust dashboard manager JS on change (prevents stale behavior in prod)
+    $dashboardManagerJsVersion = @filemtime(__DIR__ . '/assets/js/dashboard_manager.js') ?: time();
+?>
 
     <style>
         /* Additional dashboard specific styles */
@@ -88,444 +101,328 @@ $csrfToken = $auth->generateCSRFToken();
             color: var(--color-error);
         }
 
-        /* Additional sidebar styles */
-        .nav-section {
-            margin-bottom: var(--space-6);
+        /* Dashboard widgets */
+        .dash-clock-time {
+            font-size: 40px;
+            font-weight: var(--font-bold);
+            letter-spacing: 0.02em;
+            color: var(--color-gray-900);
+            line-height: 1.1;
         }
 
-        .nav-section-title {
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-sidebar-text-muted);
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            color: var(--color-sidebar-text);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            position: relative;
+        .dash-clock-date {
+            margin-top: 6px;
+            color: var(--color-gray-600);
             font-size: var(--text-sm);
         }
 
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+        .dash-mini-list {
+            margin: var(--space-4) 0 0 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: var(--color-sidebar-active);
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-style: normal;
-            color: var(--color-sidebar-text);
-            position: relative;
-        }
-
-        /* White icon styles using CSS */
-        .icon::before {
-            content: '';
-            display: block;
-            width: 18px;
-            height: 18px;
-            background-color: currentColor;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-        }
-
-        /* Individual icon masks */
-        .icon--home::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-        }
-
-        .icon--folder::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-        }
-
-        .icon--calendar::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        }
-
-        .icon--check::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-        }
-
-        .icon--ticket::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-        }
-
-        .icon--shield::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-        }
-
-        .icon--cpu::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-        }
-
-        .icon--building::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-        }
-
-        .icon--users::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-        }
-
-        .icon--chart::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-        }
-
-        .icon--settings::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-        }
-
-        .icon--user::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-        }
-
-        .icon--logout::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-        }
-
-        .logo-icon {
-            font-size: var(--text-2xl);
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--color-primary);
-            color: var(--color-white);
+        .dash-mini-item {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--color-gray-200);
             border-radius: var(--radius-md);
-            font-weight: var(--font-bold);
+            background: var(--color-gray-50);
         }
 
-        .logo-text {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
+        .dash-mini-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
         }
 
-        .sidebar-subtitle {
+        .dash-mini-title {
+            font-weight: 600;
+            color: var(--color-gray-900);
+            font-size: var(--text-sm);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .dash-mini-sub {
+            color: var(--color-gray-600);
             font-size: var(--text-xs);
-            color: var(--color-sidebar-text-muted);
-            margin-top: var(--space-1);
         }
 
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--radius-lg);
+        .dash-mini-right {
+            color: var(--color-gray-700);
+            font-size: var(--text-xs);
+            white-space: nowrap;
+            margin-top: 2px;
         }
 
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--color-sidebar-active);
-            color: var(--color-white);
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
+        .dash-progress {
+            margin-top: var(--space-4);
         }
 
-        .user-details {
-            flex: 1;
+        .dash-progress-bar {
+            height: 10px;
+            background: var(--color-gray-200);
+            border-radius: 999px;
+            overflow: hidden;
         }
 
-        .user-name {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-sidebar-text);
-        }
-
-        .user-badge {
-            font-size: 10px;
-            color: var(--color-white);
+        .dash-progress-fill {
+            height: 100%;
+            width: 0%;
             background: var(--color-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            font-weight: var(--font-semibold);
+            border-radius: 999px;
+            transition: width 200ms ease;
         }
+
+        .dash-progress-meta {
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: var(--text-sm);
+            color: var(--color-gray-700);
+        }
+
+        .dash-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--color-gray-100);
+            color: var(--color-gray-700);
+            white-space: nowrap;
+        }
+
+        .dash-pill.warn { background: #FFFBEB; color: #92400e; }
+        .dash-pill.danger { background: #FEF2F2; color: #991b1b; }
     </style>
 </head>
-<body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <span class="logo-icon">N</span>
-                    <span class="logo-text">NEXIO</span>
-                </div>
-                <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">AREA OPERATIVA</div>
-                    <a href="dashboard.php" class="nav-item active"><i class="icon icon--home"></i> Dashboard</a>
-                    <a href="files.php" class="nav-item"><i class="icon icon--folder"></i> File Manager</a>
-                    <a href="calendar.php" class="nav-item"><i class="icon icon--calendar"></i> Calendario</a>
-                    <a href="tasks.php" class="nav-item"><i class="icon icon--check"></i> Task</a>
-                    <a href="ticket.php" class="nav-item"><i class="icon icon--ticket"></i> Ticket</a>
-                    <a href="conformita.php" class="nav-item"><i class="icon icon--shield"></i> Conformità</a>
-                    <a href="ai.php" class="nav-item"><i class="icon icon--cpu"></i> AI</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">GESTIONE</div>
-                    <a href="aziende.php" class="nav-item"><i class="icon icon--building"></i> Aziende</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">AMMINISTRAZIONE</div>
-                    <a href="utenti.php" class="nav-item"><i class="icon icon--users"></i> Utenti</a>
-                    <a href="audit_log.php" class="nav-item"><i class="icon icon--chart"></i> Audit Log</a>
-                    <a href="configurazioni.php" class="nav-item"><i class="icon icon--settings"></i> Configurazioni</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">ACCOUNT</div>
-                    <a href="profilo.php" class="nav-item"><i class="icon icon--user"></i> Il Mio Profilo</a>
-                    <a href="logout.php" class="nav-item"><i class="icon icon--logout"></i> Esci</a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo strtoupper(substr($currentUser['name'], 0, 2)); ?></div>
-                    <div class="user-details">
-                        <div class="user-name"><?php echo htmlspecialchars($currentUser['name']); ?></div>
-                        <div class="user-badge">SUPER ADMIN</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="header">
-                <h1 class="page-title">Dashboard</h1>
-                <div class="flex items-center gap-4">
+<?php require __DIR__ . '/includes/layout_start.php'; ?>
+            <?php
+                // CNX UI redesign 2026-05 round 2 — hero card greeting (reference: Monday 25th).
+                $cnxGreetingFirstName = trim(strtok((string)($currentUser['name'] ?? 'Utente'), ' '));
+                if ($cnxGreetingFirstName === '') { $cnxGreetingFirstName = 'Utente'; }
+                $cnxItalianMonths = [
+                    1 => 'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+                    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
+                ];
+                $cnxItalianWeekdays = [
+                    0 => 'domenica', 'lunedì', 'martedì', 'mercoledì',
+                    'giovedì', 'venerdì', 'sabato'
+                ];
+                $cnxNow = new DateTimeImmutable('now');
+                $cnxWeekdayCap = ucfirst($cnxItalianWeekdays[(int)$cnxNow->format('w')]);
+                $cnxDayNum = (int)$cnxNow->format('j');
+                $cnxMonthName = $cnxItalianMonths[(int)$cnxNow->format('n')];
+                $cnxYearNum = $cnxNow->format('Y');
+            ?>
+            <header class="header cnx-page-header cnx-page-header--no-border" style="padding: 16px 32px 0;">
+                <div class="cnx-page-header__actions" style="margin-left: auto;">
                     <?php if ($companyFilter->canUseCompanyFilter()): ?>
                         <?php echo $companyFilter->renderDropdown(); ?>
                     <?php endif; ?>
-                    <span class="text-sm text-muted">Benvenuto, <?php echo htmlspecialchars($currentUser['name']); ?></span>
                 </div>
-            </div>
+            </header>
 
             <div class="page-content">
-                <!-- Stats Grid -->
+                <!-- Hidden current user id for JS helpers (dashboard widgets) -->
+                <input type="hidden" id="currentUserId" value="<?php echo htmlspecialchars((string)($currentUser['id'] ?? '')); ?>">
+                <input type="hidden" id="currentUserRole" value="<?php echo htmlspecialchars((string)($currentUser['role'] ?? 'user')); ?>">
+                <?php
+                    // Expose selected tenant(s) from Company Filter to JS (same logic as calendar.php)
+                    $selectedTenantIds = null; // null => all (for eligible roles)
+                    if (isset($companyFilter) && $companyFilter instanceof CompanyFilter && $companyFilter->canUseCompanyFilter()) {
+                        $selectedTenantIds = $companyFilter->getActiveFilterIds(); // null means "Tutte le aziende"
+                        if ($selectedTenantIds === null) {
+                            // All companies selected: expose all accessible companies IDs to JS
+                            $selectedTenantIds = array_values(array_map(static fn($c) => (int)($c['id'] ?? 0), $companyFilter->getAvailableCompanies()));
+                            $selectedTenantIds = array_values(array_filter($selectedTenantIds, static fn($id) => $id > 0));
+                        }
+                    }
+                    if (!is_array($selectedTenantIds) || empty($selectedTenantIds)) {
+                        $fallback = (int)($currentUser['tenant_id'] ?? 0);
+                        $selectedTenantIds = $fallback > 0 ? [$fallback] : [];
+                    }
+                    $activeTenantIdForDashboard = $selectedTenantIds[0] ?? ($currentUser['tenant_id'] ?? null);
+                ?>
+                <input type="hidden" id="currentTenantId" value="<?php echo htmlspecialchars((string)($activeTenantIdForDashboard ?? '')); ?>">
+                <input type="hidden" id="currentTenantIds" value="<?php echo htmlspecialchars(json_encode($selectedTenantIds, JSON_UNESCAPED_SLASHES)); ?>">
+
+                <!-- CNX UI redesign 2026-05 round 2: hero card greeting (reference: Monday 25th) -->
+                <section class="cnx-hero-card" aria-labelledby="cnxHeroGreeting">
+                    <div class="cnx-hero-card__body">
+                        <div class="cnx-hero-card__weekday"><?php echo htmlspecialchars($cnxWeekdayCap); ?></div>
+                        <div class="cnx-hero-card__date"><?php echo (int)$cnxDayNum; ?><span class="cnx-hero-card__suffix"><?php echo htmlspecialchars($cnxMonthName); ?></span></div>
+                        <h1 id="cnxHeroGreeting" class="cnx-hero-card__greeting">Ciao, <?php echo htmlspecialchars($cnxGreetingFirstName); ?>!</h1>
+                        <p class="cnx-hero-card__tagline">Buona giornata, fai succedere cose belle.</p>
+                    </div>
+                    <div class="cnx-hero-card__art" aria-hidden="true">
+                        <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="160" cy="40" r="14"/>
+                            <path d="M155 35l5 5 5-5"/>
+                            <rect x="20" y="80" width="60" height="56" rx="8"/>
+                            <path d="M20 96h60"/>
+                            <circle cx="32" cy="88" r="2"/>
+                            <circle cx="40" cy="88" r="2"/>
+                            <path d="M30 110h40m-40 12h28"/>
+                            <rect x="100" y="60" width="80" height="76" rx="10"/>
+                            <path d="M100 80h80"/>
+                            <path d="M115 100h50m-50 14h35m-35 12h20"/>
+                        </svg>
+                    </div>
+                </section>
+
+                <!-- Stats Grid - 4 Cards -->
                 <div class="dashboard-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Progetti Attivi</div>
-                        <div class="stat-value">12</div>
-                        <div class="stat-change positive">+2.5% dal mese scorso</div>
+                        <div class="stat-label">Ora</div>
+                        <div class="dash-clock-time" id="dashboardClockTime">--:--:--</div>
+                        <div class="dash-clock-date" id="dashboardClockDate">—</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Task Completati</div>
-                        <div class="stat-value">48</div>
-                        <div class="stat-change positive">+12% questa settimana</div>
+                        <div class="stat-label">I miei turni</div>
+                        <div class="stat-value" id="dashboardMyShiftsCount">—</div>
+                        <div class="stat-change">Prossimi 30 giorni</div>
+                        <ul class="dash-mini-list" id="dashboardMyShiftsList">
+                            <li class="dash-mini-item"><div class="text-muted">Caricamento...</div></li>
+                        </ul>
+                        <div style="margin-top: 12px;">
+                            <a class="btn btn-outline" href="turni.php">Apri Turni</a>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">In Scadenza</div>
-                        <div class="stat-value">7</div>
-                        <div class="stat-change negative">3 urgenti</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Membri del Team</div>
-                        <div class="stat-value">24</div>
-                        <div class="stat-change">6 online ora</div>
+                        <div class="stat-label">Task assegnati</div>
+                        <div class="stat-value" id="dashboardTasksAssignedCount">—</div>
+                        <div class="dash-progress">
+                            <div class="dash-progress-bar">
+                                <div class="dash-progress-fill" id="dashboardTasksProgressFill"></div>
+                            </div>
+                            <div class="dash-progress-meta">
+                                <span id="dashboardTasksProgressText">Caricamento...</span>
+                                <span class="dash-pill" id="dashboardTasksOverduePill" style="display:none;">⏰ 0 scaduti</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <a class="btn btn-outline" href="tasks.php">Apri Task</a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Content Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Recent Activity -->
+                <!-- Two Column Section: Activities + Calendario -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Recent Activity (Left Column) -->
                     <div class="card">
                         <div class="card-header">
                             <h2 class="card-title">Attività Recente</h2>
                         </div>
                         <div class="card-body">
-                            <ul class="simple-list">
+                            <ul class="simple-list" id="activity-list">
                                 <li class="list-item">
-                                    <div class="list-icon"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Nuovo progetto creato</div>
-                                        <div class="list-description">Marketing Q1 2024</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">2h fa</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon bg-success"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Task completato</div>
-                                        <div class="list-description">Revisione contratto</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">5h fa</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon bg-warning"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Scadenza imminente</div>
-                                        <div class="list-description">Report mensile - domani</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">Ieri</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Nuovo membro aggiunto</div>
-                                        <div class="list-description">Andrea Bianchi si è unito</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">2 giorni fa</div>
+                                    <div class="text-muted">Caricamento...</div>
                                 </li>
                             </ul>
                         </div>
                     </div>
 
-                    <!-- Projects Progress -->
+                    <!-- Calendario (Right Column) -->
                     <div class="card">
                         <div class="card-header">
-                            <h2 class="card-title">Progetti Attivi</h2>
+                            <h2 class="card-title">Calendario</h2>
                         </div>
                         <div class="card-body">
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Redesign Sito Web</span>
-                                    <span class="badge badge-blue">In Corso</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 65%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">65% Completo</div>
+                            <div id="miniCalendar" class="mini-calendar">
+                                <div class="mini-calendar-loading text-muted">Caricamento...</div>
                             </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">App Mobile</span>
-                                    <span class="badge badge-yellow">Pianificazione</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 20%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">20% Completo</div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Integrazione API</span>
-                                    <span class="badge badge-green">Completato</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill bg-success" style="width: 100%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">100% Completo</div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Migrazione Database</span>
-                                    <span class="badge badge-blue">In Corso</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 45%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">45% Completo</div>
+                            <div style="margin-top: 12px;">
+                                <a class="btn btn-primary" href="calendar.php">Apri Calendario</a>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Three Column Section: Documents + Events + Tickets -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Recent Documents -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Documenti Recenti</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="documents-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Events -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Prossimi Eventi</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="events-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Recent Tickets -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Ticket Recenti</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="tickets-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
     <!-- Hidden CSRF token -->
     <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
 
+    <!-- Dashboard Manager Script -->
+    <script src="assets/js/dashboard_manager.js?v=<?php echo (int)$dashboardManagerJsVersion; ?>"></script>
+
     <script>
-        class Dashboard {
-            constructor() {
-                this.config = {
-                    apiBase: '/api/',
-                    pollInterval: 30000
-                };
-                this.state = {};
-                this.init();
-            }
-
-            init() {
-                this.bindEvents();
-                this.loadInitialData();
-            }
-
-            bindEvents() {
-                // Mobile sidebar toggle
-                const sidebarToggle = document.getElementById('sidebarToggle');
-                if (sidebarToggle) {
-                    sidebarToggle.addEventListener('click', () => {
-                        document.querySelector('.sidebar').classList.toggle('open');
-                    });
-                }
-            }
-
-            async loadInitialData() {
-                // Load dashboard data here
-                console.log('Dashboard initialized');
-            }
-
-            showToast(message, type = 'info') {
-                // Toast notification implementation
-                console.log(`${type}: ${message}`);
-            }
-        }
-
-        // Initialize when DOM is ready
+        // Initialize Dashboard Manager when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.dashboard = new Dashboard();
+            // Expose role/tenant to JS (for dashboard_manager)
+            window.userRole = '<?php echo htmlspecialchars($currentUser['role']); ?>';
+            window.userTenantId = '<?php echo htmlspecialchars($currentUser['tenant_id'] ?? ''); ?>';
+            // Initialize dashboard manager
+            window.dashboardManager = new DashboardManager();
+
+            // Mobile sidebar toggle handler (kept from original)
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', () => {
+                    document.querySelector('.sidebar').classList.toggle('open');
+                });
+            }
+
+            console.log('[Dashboard] Initialized with dynamic data loading');
         });
     </script>
 
@@ -628,6 +525,35 @@ $csrfToken = $auth->generateCSRFToken();
             background: #FFFBEB;
             color: var(--color-warning);
         }
+
+        .badge-red {
+            background: #FEF2F2;
+            color: var(--color-error);
+        }
+
+        .activity-dup {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-size: 10px;
+            color: var(--color-gray-500);
+            background: #F3F4F6;
+        }
+
+        .empty-link {
+            font-size: var(--text-xs);
+            color: var(--color-primary);
+            text-decoration: underline;
+            margin-top: var(--space-2);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .empty-link svg {
+            width: 12px;
+            height: 12px;
+        }
     </style>
-</body>
-</html>
+<?php require __DIR__ . '/includes/layout_end.php'; ?>

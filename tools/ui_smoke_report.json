@@ -1,0 +1,99 @@
+{
+  "report_id": "ui-redesign-2026-05-smoke",
+  "generated_at": "2026-05-03T08:06:00+02:00",
+  "branch": "ui/redesign-2026-05",
+  "viewport": { "width": 1440, "height": 900 },
+  "user": "asamodeo@fortibyte.it (super_admin)",
+  "verdict": "PASS",
+  "blocker_failures": 0,
+  "checks": [
+    {
+      "page": "files.php",
+      "kind": "structural",
+      "passed": true,
+      "details": {
+        "sidebarPresent": true,
+        "themeToggleBound": true,
+        "componentsCssLoaded": true,
+        "fileManagerInitialized": true,
+        "workflowManagerInitialized": true,
+        "uploadBtnExists": true,
+        "csrfTokenPresent": true,
+        "greetingTitleClass": true,
+        "cnxBreadcrumbPresent": true
+      }
+    },
+    {
+      "page": "dashboard.php",
+      "kind": "structural",
+      "passed": true,
+      "details": {
+        "greetingText": "Ciao, Antonio!",
+        "subtitleText": "Domenica, 3 maggio 2026",
+        "hasCompanyFilter": true,
+        "dashboardManagerReady": true,
+        "toggleVisible": true
+      }
+    },
+    {
+      "page": "shell",
+      "kind": "behavioral",
+      "passed": true,
+      "details": {
+        "themeTogglePersistsToLocalStorage": true,
+        "dataThemeAttributeFlips": true,
+        "iconSwapsLightToDark": true
+      }
+    }
+  ],
+  "captures": {
+    "light": [
+      "tools/ui_redesign/light/login.png",
+      "tools/ui_redesign/light/dashboard.png",
+      "tools/ui_redesign/light/files.png",
+      "tools/ui_redesign/light/calendar.png",
+      "tools/ui_redesign/light/tasks.png",
+      "tools/ui_redesign/light/ticket.png",
+      "tools/ui_redesign/light/turni.png",
+      "tools/ui_redesign/light/aziende.png",
+      "tools/ui_redesign/light/utenti.png",
+      "tools/ui_redesign/light/audit_log.png",
+      "tools/ui_redesign/light/configurazioni.png"
+    ],
+    "dark": [
+      "tools/ui_redesign/dark/dashboard.png",
+      "tools/ui_redesign/dark/files.png",
+      "tools/ui_redesign/dark/calendar.png",
+      "tools/ui_redesign/dark/tasks.png",
+      "tools/ui_redesign/dark/ticket.png",
+      "tools/ui_redesign/dark/turni.png",
+      "tools/ui_redesign/dark/aziende.png",
+      "tools/ui_redesign/dark/utenti.png",
+      "tools/ui_redesign/dark/audit_log.png",
+      "tools/ui_redesign/dark/configurazioni.png"
+    ]
+  },
+  "console_errors_observed": [
+    {
+      "page": "calendar.php / dashboard.php",
+      "error": "GET /api/events.php?tenant_id=28 -> 500",
+      "is_pre_existing": true,
+      "redesign_related": false,
+      "notes": "Server-side bug in events API for tenant 28 — UNRELATED to UI redesign. Tracked separately."
+    }
+  ],
+  "known_partial_states": [
+    {
+      "issue": "Legacy widgets keep light card styling in dark mode",
+      "scope": "Widgets that still use --color-white / --color-gray-* (stat-card, simple-list, *-modal etc.)",
+      "fix_path": "Round 2 — migrate remaining tokens or add dark-mode overrides",
+      "blocker": false
+    },
+    {
+      "issue": "Login page has no theme toggle exposed (no sidebar)",
+      "scope": "index.php is a public auth page; theme toggle lives in app shell",
+      "fix_path": "Intentional — public pages do not need a toggle",
+      "blocker": false
+    }
+  ]
+}

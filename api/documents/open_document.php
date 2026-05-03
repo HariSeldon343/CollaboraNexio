@@ -1,0 +1,390 @@
+<?php
+/**
+ * Open Document API Endpoint - FIXED VERSION
+ *
+ * Apre un documento nell'editor OnlyOffice
+ * FIX: Uses file's tenant_id instead of user's session tenant_id in JWT token
+ *
+ * @version 1.0.1
+ * @since PHP 8.3
+ */
+
+declare(strict_types=1);
+
+// Include centralized API authentication
+require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/document_editor_helper.php';
+require_once __DIR__ . '/../../includes/file_access.php';
+
+// Initialize API environment
+initializeApiEnvironment();
+
+// Verify authentication
+verifyApiAuthentication();
+
+// Verify CSRF token
+verifyApiCsrfToken();
+
+// Get current user info
+$userInfo = getApiUserInfo();
+$user_id = $userInfo['user_id'];
+$user_tenant_id = $userInfo['tenant_id']; // User's default tenant
+$user_role = $userInfo['role'];
+$user_name = $userInfo['user_name'];
+$user_email = $userInfo['user_email'];
+
+// Get database connection
+$db = Database::getInstance();
+
+// Get parameters
+$file_id = isset($_GET['file_id']) ? (int)$_GET['file_id'] : 0;
+$mode = $_GET['mode'] ?? 'edit'; // 'edit' or 'view'
+
+// Validate input
+if ($file_id <= 0) {
+    apiError('ID file non valido', 400);
+}
+
+if (!in_array($mode, ['edit', 'view'])) {
+    apiError('Modalità non valida', 400);
+}
+
+try {
+    // Check OnlyOffice connectivity first
+    $onlyOfficeStatus = checkOnlyOfficeConnectivity();
+    if (!$onlyOfficeStatus['available']) {
+        apiError(
+            'OnlyOffice Document Server non disponibile. Impossibile aprire l\'editor.',
+            503,
+            DEBUG_MODE ? ['debug' => $onlyOfficeStatus] : null
+        );
+    }
+
+    // Get file information; super_admin can bypass tenant restriction
+    if ($user_role === 'super_admin') {
+        $fileInfo = getFileInfoForEditorAnyTenant($file_id);
+    } else {
+        // First try with user's default tenant
+        $fileInfo = getFileInfoForEditor($file_id, $user_tenant_id);
+
+        // If not found and user has multi-tenant access, search in all user's tenants
+        if (!$fileInfo && $userInfo['is_multi_tenant']) {
+            // Try to find the file without tenant restriction for multi-tenant users
+            $fileInfo = getFileInfoForEditorAnyTenant($file_id);
+
+            // Verify user has access to this tenant
+            if ($fileInfo) {
+                $hasAccess = $db->fetchOne(
+                    "SELECT 1 FROM user_tenants
+                     WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
+                    [$user_id, $fileInfo['tenant_id']]
+                );
+
+                if (!$hasAccess) {
+                    $fileInfo = false; // Deny access
+                }
+            }
+        }
+    }
+
+    if (!$fileInfo) {
+        apiError('File non trovato o accesso negato', 404);
+    }
+
+    // CRITICAL FIX: Use the FILE's tenant_id, not the user's session tenant_id
+    $file_tenant_id = $fileInfo['tenant_id']; // This is the correct tenant!
+
+    // Enforce assignment-aware access rules (block if assigned to others)
+    $access = hasFileOrFolderAccess($db, (int)$file_id, (int)$user_id, (string)$user_role, (int)$file_tenant_id);
+    if (!$access['has_access']) {
+        apiError(
+            'Accesso negato: documento assegnato',
+            403,
+            DEBUG_MODE ? ['access' => $access] : null
+        );
+    }
+
+    if (DEBUG_MODE) {
+        error_log("=== TENANT ID DEBUG ===");
+        error_log("User session tenant_id: $user_tenant_id");
+        error_log("File actual tenant_id: $file_tenant_id");
+        error_log("File ID: $file_id");
+        error_log("File name: " . $fileInfo['name']);
+        error_log("======================");
+    }
+
+    // Check if file is supported by OnlyOffice
+    if (!$fileInfo['is_editable'] && !$fileInfo['is_viewonly']) {
+        apiError('Formato file non supportato per l\'editor', 400);
+    }
+
+    // BUG-135 v3: Validate file has content before opening
+    // Empty files cause OnlyOffice error -4 "Download failed"
+    $physicalPath = $fileInfo['physical_path'];
+    $fileExists = file_exists($physicalPath);
+    $actualFileSize = $fileExists ? filesize($physicalPath) : 0;
+
+    if (!$fileExists) {
+        error_log("[BUG-135 v3] File not found on disk: $physicalPath");
+        apiError('File fisico non trovato sul server', 404);
+    }
+
+    if ($actualFileSize === 0) {
+        // Allow empty placeholders: download_for_editor.php will serve a valid blank document
+        // so OnlyOffice doesn't fail with -4.
+        error_log("[BUG-135 v4] Empty file detected (allowed): $physicalPath (size=0)");
+    }
+
+    if (DEBUG_MODE) {
+        error_log("[BUG-135 v3] File validated: $physicalPath (size=$actualFileSize bytes)");
+    }
+
+    // Check current workflow state: if not draft, force view-only
+    $workflowState = null;
+    try {
+        $wfRow = $db->fetchOne(
+            "SELECT current_state
+             FROM document_workflow
+             WHERE file_id = ?
+               AND tenant_id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')
+             LIMIT 1",
+            [$file_id, $file_tenant_id]
+        );
+        if ($wfRow && isset($wfRow['current_state'])) {
+            $workflowState = $wfRow['current_state'];
+        }
+    } catch (Exception $e) {
+        // ignore, fall back to permissions
+    }
+
+    // Check permissions
+    $permissions = checkFileEditPermissions($file_id, $user_id, $user_role);
+
+    // Force view mode if workflow state is not bozza, or user lacks edit permission, or file is view-only
+    $isDraft = ($workflowState === null || $workflowState === 'bozza');
+    if ($mode === 'edit' && (!$isDraft || !$permissions['edit'] || $fileInfo['is_viewonly'])) {
+        $mode = 'view';
+        // Harden permissions to view-only
+        $permissions['edit'] = false;
+        $permissions['review'] = false;
+        $permissions['fillForms'] = false;
+        $permissions['modifyContentControl'] = false;
+        $permissions['modifyFilter'] = false;
+    }
+
+    // Clean up expired sessions
+    cleanupExpiredSessions();
+
+    // Check for existing active session
+    $existingSession = getUserActiveSession($file_id, $user_id);
+
+    // Generate document key (unique for each version)
+    $documentKey = generateDocumentKey(
+        $file_id,
+        $fileInfo['file_hash'],
+        $fileInfo['version_count'] + 1
+    );
+
+    // Create or reuse editor session (use FILE's tenant_id)
+    if ($existingSession) {
+        $sessionData = [
+            'session_id' => $existingSession['id'],
+            'session_token' => $existingSession['session_token'],
+            'editor_key' => $existingSession['editor_key']
+        ];
+
+        // Update activity
+        updateSessionActivity($existingSession['session_token']);
+    } else {
+        // Use FILE's tenant_id for the session
+        $sessionData = createEditorSession($file_id, $user_id, $file_tenant_id, $documentKey);
+    }
+
+    // Generate download token for file access
+    // CRITICAL FIX: Use FILE's tenant_id in JWT token, not user's session tenant_id
+    $downloadToken = generateOnlyOfficeJWT([
+        'file_id' => $file_id,
+        'user_id' => $user_id,
+        'tenant_id' => $file_tenant_id,  // FIX: Use file's tenant, not user's!
+        'session_token' => $sessionData['session_token'],
+        'permissions' => ['download' => true]
+    ]);
+
+    // Generate file URL for OnlyOffice
+    $fileUrl = generateDownloadUrl($file_id, $downloadToken);
+
+    // Generate callback URL
+    $callbackUrl = ($mode === 'edit') ? generateCallbackUrl($documentKey) : null;
+
+    // Get active collaborators
+    $activeSessions = getActiveSessionsForFile($file_id);
+    $collaborators = [];
+
+    foreach ($activeSessions as $session) {
+        if ($session['user_id'] != $user_id) {
+            $collaborators[] = [
+                'id' => (string)$session['user_id'],
+                'name' => $session['user_name']
+            ];
+        }
+    }
+
+    // Build OnlyOffice configuration
+    $config = [
+        'documentType' => $fileInfo['document_type'],
+        'document' => [
+            'fileType' => $fileInfo['extension'],
+            'key' => $documentKey,
+            'title' => $fileInfo['name'],
+            'url' => $fileUrl,
+            'token' => $downloadToken, // JWT token for document download authentication
+            'info' => [
+                'author' => $fileInfo['uploaded_by_name'] ?? 'Unknown',
+                'created' => $fileInfo['created_at'],
+                'folder' => 'Tenant: ' . $fileInfo['tenant_name']
+            ],
+            'permissions' => $permissions
+        ],
+        'editorConfig' => [
+            'mode' => $mode,
+            'lang' => ONLYOFFICE_LANG,
+            'region' => ONLYOFFICE_REGION,
+            'user' => [
+                'id' => (string)$user_id,
+                'name' => $user_name,
+                'email' => $user_email
+            ],
+            'customization' => getOnlyOfficeCustomization([
+                'autosave' => true,
+                'comments' => ONLYOFFICE_ENABLE_COMMENTS,
+                'compactHeader' => false,
+                'compactToolbar' => false,
+                'feedback' => false,
+                'forcesave' => true,
+                'help' => true,
+                'hideRightMenu' => false,
+                'spellcheck' => true,
+                'toolbarNoTabs' => false,
+                'unit' => 'cm', // Italian standard
+                'zoom' => 100
+            ])
+        ]
+    ];
+
+    // Add callback URL if in edit mode
+    if ($callbackUrl && $mode === 'edit') {
+        $config['editorConfig']['callbackUrl'] = $callbackUrl;
+    }
+
+    // Add co-editing settings at editor config level
+    if (ONLYOFFICE_ENABLE_COLLABORATION) {
+        $config['editorConfig']['coEditing'] = [
+            'mode' => 'fast',
+            'change' => true
+        ];
+    }
+
+    // Add review/track changes at editor config level
+    if ($permissions['review'] ?? false) {
+        $config['editorConfig']['review'] = [
+            'reviewDisplay' => 'original',
+            'trackChanges' => true,
+            'hoverMode' => false
+        ];
+    }
+
+    // Add collaborators if any
+    if (count($collaborators) > 0 && ONLYOFFICE_ENABLE_COLLABORATION) {
+        $config['editorConfig']['user']['group'] = 'Tenant ' . $file_tenant_id;
+    }
+
+    // Add recent changes info if available
+    if ($fileInfo['last_edited_at'] && $fileInfo['last_edited_by']) {
+        $lastEditor = $db->fetchOne(
+            "SELECT name FROM users WHERE id = ?",
+            [$fileInfo['last_edited_by']]
+        );
+
+        if ($lastEditor) {
+            $config['document']['info']['modified'] = $fileInfo['last_edited_at'];
+            $config['document']['info']['modifiedBy'] = $lastEditor['name'];
+        }
+    }
+
+    // Generate JWT token for entire config if enabled
+    $token = '';
+    if (ONLYOFFICE_JWT_ENABLED) {
+        $token = generateOnlyOfficeJWT($config);
+    }
+
+    // Build response
+    $response = [
+        'success' => true,
+        'data' => [
+            'editor_url' => ONLYOFFICE_SERVER_URL,
+            'api_url' => ONLYOFFICE_API_URL,
+            'document_key' => $documentKey,
+            'file_url' => $fileUrl,
+            'callback_url' => $callbackUrl,
+            'session_token' => $sessionData['session_token'],
+            'mode' => $mode,
+            'user' => [
+                'id' => $user_id,
+                'name' => $user_name
+            ],
+            'permissions' => $permissions,
+            'config' => $config,
+            'token' => $token,
+            'collaborators' => $collaborators,
+            'file_info' => [
+                'id' => $file_id,
+                'name' => $fileInfo['name'],
+                'size' => $fileInfo['file_size'],
+                'type' => $fileInfo['document_type'],
+                'extension' => $fileInfo['extension'],
+                'version' => $fileInfo['version_count'] + 1,
+                'tenant_id' => $file_tenant_id  // Include for debugging
+            ]
+        ]
+    ];
+
+    // ENHANCED LOGGING FOR DEBUGGING (BUG-135 v3)
+    error_log('[BUG-135 v3] === OnlyOffice Document Opening Debug ===');
+    error_log('[BUG-135 v3] User session tenant_id: ' . $user_tenant_id);
+    error_log('[BUG-135 v3] File actual tenant_id: ' . $file_tenant_id);
+    error_log('[BUG-135 v3] JWT token tenant_id: ' . $file_tenant_id);
+    error_log('[BUG-135 v3] File ID: ' . $file_id);
+    error_log('[BUG-135 v3] File Name: ' . $fileInfo['name']);
+    error_log('[BUG-135 v3] Document Key: ' . $documentKey);
+    error_log('[BUG-135 v3] Mode: ' . $mode);
+    error_log('[BUG-135 v3] Download URL: ' . $fileUrl);
+    error_log('[BUG-135 v3] Callback URL: ' . ($callbackUrl ?? 'NULL'));
+    error_log('[BUG-135 v3] Config document.url: ' . ($config['document']['url'] ?? 'NULL'));
+    error_log('[BUG-135 v3] Config editorConfig.callbackUrl: ' . ($config['editorConfig']['callbackUrl'] ?? 'NULL'));
+    error_log('[BUG-135 v3] ONLYOFFICE_DOWNLOAD_URL constant: ' . ONLYOFFICE_DOWNLOAD_URL);
+    error_log('[BUG-135 v3] ONLYOFFICE_CALLBACK_URL constant: ' . ONLYOFFICE_CALLBACK_URL);
+    error_log('[BUG-135 v3] Full config JSON: ' . json_encode($config));
+    error_log('[BUG-135 v3] === End OnlyOffice Debug ===');
+
+    // Log audit
+    logDocumentAudit('document_opened', $file_id, $user_id, [
+        'mode' => $mode,
+        'session_id' => $sessionData['session_id'],
+        'document_key' => $documentKey,
+        'file_url' => $fileUrl,
+        'callback_url' => $callbackUrl,
+        'file_tenant_id' => $file_tenant_id
+    ]);
+
+    // Send response
+    apiSuccess($response['data'], 'Documento aperto con successo');
+
+} catch (Exception $e) {
+    logApiError('Open Document', $e);
+    apiError(
+        'Errore nell\'apertura del documento',
+        500,
+        DEBUG_MODE ? ['debug' => $e->getMessage()] : null
+    );
+}

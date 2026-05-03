@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CollaboraNexio — UI Redesign 2026-05 — Visual Diff Report</title>
+<style>
+:root{
+  --bg:#0e1a1d; --surface:#15262a; --surface-2:#1b2f33;
+  --text:#e6eef0; --muted:#a8b5bb; --border:#22363b;
+  --accent:#5fcad3; --accent-soft:rgba(95,202,211,0.16);
+  --warn:#f59e0b; --ok:#22c55e; --danger:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+header{padding:32px 40px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#15262a 0%,#0e1a1d 100%)}
+h1{margin:0 0 6px;font-size:28px;font-weight:700;letter-spacing:-0.01em}
+header p{margin:0;color:var(--muted);font-size:14px}
+.meta{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px;font-size:13px}
+.meta .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:9999px}
+.meta .pill strong{color:var(--accent)}
+nav{position:sticky;top:0;z-index:10;background:rgba(14,26,29,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:10px 40px;display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+nav a{color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:9999px;border:1px solid transparent;transition:all 180ms}
+nav a:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+section{padding:32px 40px;border-bottom:1px solid var(--border)}
+section h2{margin:0 0 4px;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px}
+section h2 .badge{padding:2px 10px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:6px}
+section p.desc{margin:0 0 18px;color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.grid.dark-only{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1100px){.grid,.grid.dark-only{grid-template-columns:1fr}}
+figure{margin:0;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+figcaption{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--surface-2);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+figcaption .tag{padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700}
+.tag-base{background:rgba(166,186,196,0.12);color:#cfd8dc}
+.tag-light{background:rgba(245,222,179,0.16);color:#fcd34d}
+.tag-dark{background:rgba(95,202,211,0.16);color:var(--accent)}
+.tag-missing{background:rgba(239,68,68,0.16);color:#fca5a5}
+img{display:block;width:100%;height:auto;border:0}
+.summary{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 24px;margin-bottom:24px}
+.summary h3{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted)}
+.summary ul{margin:0;padding:0 0 0 20px;font-size:14px}
+.summary li{margin:6px 0}
+.verdict{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(34,197,94,0.16);color:var(--ok);font-weight:700;border-radius:9999px;font-size:13px;margin-top:8px}
+.no-baseline{padding:48px;text-align:center;color:var(--muted);font-style:italic;background:var(--surface-2);border:1px dashed var(--border);border-radius:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:16px 40px;border-bottom:1px solid var(--border)}
+.legend .item{display:inline-flex;align-items:center;gap:6px}
+.legend .swatch{width:14px;height:14px;border-radius:4px;border:1px solid var(--border)}
+.swatch-base{background:#cfd8dc}
+.swatch-light{background:#fcd34d}
+.swatch-dark{background:var(--accent)}
+footer{padding:24px 40px;color:var(--muted);font-size:12px;text-align:center}
+footer code{padding:1px 6px;background:var(--surface);border-radius:4px;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>UI Redesign 2026-05 — Visual Diff Report</h1>
+  <p>Baseline (pre-redesign) vs. Redesigned (light + dark mode) — Round 1: Shell + Components + Pages pilota</p>
+  <div class="meta">
+    <span class="pill">Branch <strong>ui/redesign-2026-05</strong></span>
+    <span class="pill">Baseline tag <strong>ui-baseline-2026-05-03</strong></span>
+    <span class="pill">Generated <strong>2026-05-03</strong></span>
+    <span class="pill">Viewport <strong>1440 × 900</strong></span>
+    <span class="pill">User <strong>super_admin</strong></span>
+  </div>
+</header>
+
+<div class="legend">
+  <span class="item"><span class="swatch swatch-base"></span> BASELINE — pre-redesign snapshot from <code>tools/ui_baseline/</code></span>
+  <span class="item"><span class="swatch swatch-light"></span> LIGHT — redesign default theme</span>
+  <span class="item"><span class="swatch swatch-dark"></span> DARK — redesign with <code>data-theme="dark"</code></span>
+</div>
+
+<nav>
+  <a href="#summary">Summary</a>
+  <a href="#login">Login</a>
+  <a href="#dashboard">Dashboard</a>
+  <a href="#files">Files</a>
+  <a href="#calendar">Calendar</a>
+  <a href="#tasks">Tasks</a>
+  <a href="#ticket">Ticket</a>
+  <a href="#turni">Turni</a>
+  <a href="#aziende">Aziende</a>
+  <a href="#utenti">Utenti</a>
+  <a href="#audit_log">Audit Log</a>
+  <a href="#configurazioni">Configurazioni</a>
+</nav>
+
+<section id="summary">
+  <h2>Summary</h2>
+  <p class="desc">Round 1 of the redesign focuses on the app shell (sidebar + theme toggle), a new reusable component layer (<code>cnx-*</code>), token migration on <code>dashboard.css</code> + <code>filemanager.css</code>, and markup updates on the two pilot pages.</p>
+
+  <div class="summary">
+    <h3>Functional smoke</h3>
+    <ul>
+      <li><strong>Login flow:</strong> super_admin signs in successfully.</li>
+      <li><strong>Sidebar markup:</strong> <code>data-cnx-sidebar="true"</code> present, role-based nav still respected.</li>
+      <li><strong>Theme toggle:</strong> click flips <code>html[data-theme]</code> and persists to <code>localStorage("theme")</code>.</li>
+      <li><strong>Dashboard:</strong> personalised greeting <em>"Ciao, Antonio!"</em> + Italian date <em>"Domenica, 3 maggio 2026"</em> render correctly; <code>dashboardManager</code> initialises.</li>
+      <li><strong>Files:</strong> <code>fileManager</code>, <code>workflowManager</code>, <code>fileAssignmentManager</code> all initialise; upload button present; CSRF token wired.</li>
+      <li><strong>components.css:</strong> loaded globally via <code>layout_head.php</code>.</li>
+    </ul>
+    <span class="verdict">✓ PASS — 0 blocker failures (smoke checks 10/10)</span>
+  </div>
+
+  <div class="summary">
+    <h3>Known partial states (round 1)</h3>
+    <ul>
+      <li>Legacy widgets that still use <code>--color-white</code> / <code>--color-gray-*</code> keep light card styling in dark mode (e.g. dashboard stat cards, audit-log stat cards, configurazioni form panels). Round 2 will migrate the remaining tokens.</li>
+      <li>Legacy <code>.btn-primary</code> buttons keep the old blue accent. Migration path: swap to <code>.cnx-btn--primary</code> page-by-page (round 2).</li>
+      <li>Login page has no theme toggle (intentional — toggle is part of the auth shell).</li>
+      <li>Pre-existing 500 on <code>/api/events.php?tenant_id=28</code> in calendar / dashboard — server-side bug, NOT introduced by this redesign.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="login">
+  <h2>Login <span class="badge">unauthenticated</span></h2>
+  <p class="desc">The login page is rendered without the app shell. No theme toggle is exposed here; only the light variant is captured.</p>
+  <div class="grid">
+    <figure>
+      <figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption>
+      <img src="ui_baseline/login.png" alt="Login baseline">
+    </figure>
+    <figure>
+      <figcaption>Redesign — light <span class="tag tag-light">LIGHT</span></figcaption>
+      <img src="ui_redesign/light/login.png" alt="Login redesign light">
+    </figure>
+  </div>
+</section>
+
+<section id="dashboard">
+  <h2>Dashboard <span class="badge">pilot page</span></h2>
+  <p class="desc">Greeting "Ciao, {firstName}!" + Italian date in <code>.cnx-display</code>; company filter moved to <code>.cnx-page-header__actions</code>; sidebar mint-accent on active item; theme toggle in sidebar footer.</p>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/dashboard.png" alt="Dashboard baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/dashboard.png" alt="Dashboard light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/dashboard.png" alt="Dashboard dark"></figure>
+  </div>
+</section>
+
+<section id="files">
+  <h2>Files <span class="badge">pilot page</span></h2>
+  <p class="desc">New <code>cnx-page-header__title</code> + subtitle; <code>cnx-breadcrumb</code> with <code>/</code> separator; table inherits new tokens (mint accent, soft hover). Upload buttons, drop zone, workflow modals 100% preserved.</p>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/files.png" alt="Files baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/files.png" alt="Files light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/files.png" alt="Files dark"></figure>
+  </div>
+</section>
+
+<section id="calendar">
+  <h2>Calendar <span class="badge">shell only</span></h2>
+  <p class="desc">No page-level migration in round 1; only the shell (sidebar/theme) updates apply.</p>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/calendar.png" alt="Calendar baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/calendar.png" alt="Calendar light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/calendar.png" alt="Calendar dark"></figure>
+  </div>
+</section>
+
+<section id="tasks">
+  <h2>Tasks <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/tasks.png" alt="Tasks baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/tasks.png" alt="Tasks light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/tasks.png" alt="Tasks dark"></figure>
+  </div>
+</section>
+
+<section id="ticket">
+  <h2>Ticket <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/ticket.png" alt="Ticket baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/ticket.png" alt="Ticket light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/ticket.png" alt="Ticket dark"></figure>
+  </div>
+</section>
+
+<section id="turni">
+  <h2>Turni <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/turni.png" alt="Turni baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/turni.png" alt="Turni light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/turni.png" alt="Turni dark"></figure>
+  </div>
+</section>
+
+<section id="aziende">
+  <h2>Aziende <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/aziende.png" alt="Aziende baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/aziende.png" alt="Aziende light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/aziende.png" alt="Aziende dark"></figure>
+  </div>
+</section>
+
+<section id="utenti">
+  <h2>Utenti <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/utenti.png" alt="Utenti baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/utenti.png" alt="Utenti light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/utenti.png" alt="Utenti dark"></figure>
+  </div>
+</section>
+
+<section id="audit_log">
+  <h2>Audit Log <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/audit_log.png" alt="Audit log baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/audit_log.png" alt="Audit log light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/audit_log.png" alt="Audit log dark"></figure>
+  </div>
+</section>
+
+<section id="configurazioni">
+  <h2>Configurazioni <span class="badge">shell only</span></h2>
+  <div class="grid dark-only">
+    <figure><figcaption>Baseline <span class="tag tag-base">BASE</span></figcaption><img src="ui_baseline/configurazioni.png" alt="Configurazioni baseline"></figure>
+    <figure><figcaption>Light <span class="tag tag-light">LIGHT</span></figcaption><img src="ui_redesign/light/configurazioni.png" alt="Configurazioni light"></figure>
+    <figure><figcaption>Dark <span class="tag tag-dark">DARK</span></figcaption><img src="ui_redesign/dark/configurazioni.png" alt="Configurazioni dark"></figure>
+  </div>
+</section>
+
+<footer>
+  Open this file directly in your browser. Companion smoke results: <code>tools/ui_smoke_report.json</code>.
+</footer>
+
+</body>
+</html>

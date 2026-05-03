@@ -1,0 +1,17 @@
+node_modules
+build
+dist
+.git
+.trae
+.cursor
+.vercel
+*.log
+logs/
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+.htaccess.disabled
+.DS_Store
+Thumbs.db
+.figma

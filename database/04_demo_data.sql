@@ -26,9 +26,11 @@ ON DUPLICATE KEY UPDATE
 -- ============================================
 -- DEMO DATA - USERS
 -- ============================================
--- Password for all users: Admin123!
--- Hash generated with password_hash('Admin123!', PASSWORD_BCRYPT)
-SET @password_hash = '$2y$10$YourHashHere'; -- This will be replaced by PHP script
+-- Password for all demo users is sourced from the DEMO_SEED_PASSWORD env var
+-- by the PHP seed runner (database/manage_database.php). The placeholder below
+-- is replaced at runtime with password_hash($DEMO_SEED_PASSWORD, PASSWORD_BCRYPT).
+-- Never set a real production password by editing this file directly.
+SET @password_hash = '$2y$10$YourHashHere'; -- Replaced at runtime by PHP seeder
 
 INSERT INTO users (
     tenant_id, email, password_hash, first_name, last_name, display_name,
@@ -204,24 +206,29 @@ INSERT INTO folders (tenant_id, name, path, owner_id, parent_id) VALUES
 
 -- ============================================
 -- DEMO DATA - FILES
+-- Updated to use ACTUAL schema column names:
+-- file_size (not size_bytes), file_path (not storage_path), uploaded_by (not owner_id)
 -- ============================================
 INSERT INTO files (
     tenant_id, folder_id, name, original_name, mime_type,
-    size_bytes, storage_path, owner_id
+    file_size, file_path, uploaded_by, status
 ) VALUES
     (1, @folder_documents, 'company_policy_2025.pdf', 'Company Policy 2025.pdf',
-     'application/pdf', 2457600, '/storage/tenant_1/documents/policy_2025.pdf', 1),
+     'application/pdf', 2457600, '/storage/tenant_1/documents/policy_2025.pdf', 1, 'approvato'),
 
     (1, @folder_documents, 'employee_handbook.pdf', 'Employee Handbook.pdf',
-     'application/pdf', 1843200, '/storage/tenant_1/documents/handbook.pdf', 1),
+     'application/pdf', 1843200, '/storage/tenant_1/documents/handbook.pdf', 1, 'approvato'),
 
     (1, @folder_shared, 'meeting_notes_jan.docx', 'Meeting Notes January.docx',
      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-     524288, '/storage/tenant_1/shared/meeting_jan.docx', 2),
+     524288, '/storage/tenant_1/shared/meeting_jan.docx', 2, 'in_approvazione'),
 
     (1, @folder_projects, 'project_timeline.xlsx', 'Project Timeline.xlsx',
      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-     786432, '/storage/tenant_1/projects/timeline.xlsx', 2);
+     786432, '/storage/tenant_1/projects/timeline.xlsx', 2, 'approvato')
+ON DUPLICATE KEY UPDATE
+    file_size = VALUES(file_size),
+    status = VALUES(status);
 
 -- ============================================
 -- DEMO DATA - CHAT CHANNELS

@@ -1,202 +1,473 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guida operativa (per agenti AI e sviluppatori) per lavorare su **CollaboraNexio**.
 
-## Project Overview
+CollaboraNexio è una piattaforma multi-tenant per aziende italiane: gestione documentale, workflow approvativi/validazione, calendario aziendale, task management, ticketing, audit log, notifiche email e integrazione con **OnlyOffice**.
 
-CollaboraNexio is a multi-tenant enterprise collaboration platform built with vanilla PHP 8.3 (no frameworks). It's designed for XAMPP on Windows, running on port 8888.
+> Obiettivo di questo file: descrivere **in modo dettagliato** cosa fa la piattaforma e fissare le **regole non negoziabili** che evitano regressioni (bug storici) su multi-tenancy, sicurezza, API/JS e DB.
 
-## Critical Commands
+---
 
-### Database Setup & Migration
-```bash
-# Initial database setup (creates all tables and demo data)
-php /mnt/c/xampp/htdocs/CollaboraNexio/database/manage_database.php full
+## 1) Ambienti, URL, stack
 
-# Run missing tables migration
-php /mnt/c/xampp/htdocs/CollaboraNexio/execute_final_migration.php
+- **Dev locale (XAMPP/Windows)**: `http://localhost:8888/CollaboraNexio`
+- **Produzione (Cloudflare)**: `https://app.nexiosolution.it/CollaboraNexio`
 
-# Check database structure
-php /mnt/c/xampp/htdocs/CollaboraNexio/check_database_structure.php
+### Stack
+- **Backend**: PHP “vanilla” (senza framework)
+- **DB**: MySQL/MariaDB 10.4+
+- **OnlyOffice Document Server**: Docker (locale o remoto)
+- **Frontend**: HTML/CSS/JS vanilla, `fetch()` verso endpoint PHP
 
-# Safe migration for approval system
-php /mnt/c/xampp/htdocs/CollaboraNexio/run_migration.php
-```
+### Configurazione
+- `config.php`: sviluppo
+- `config.production.php`: produzione
+- Auto-detection via hostname/ambiente
 
-### System Verification
-```bash
-# Check system health (access via browser)
-http://localhost:8888/CollaboraNexio/system_check.php
+### Health / debug rapidi
+- `system_check.php`: check di salute (dev)
+- Log runtime:
+  - `logs/php_errors.log`
+  - `logs/database_errors.log`
+  - `logs/mailer_error.log`
+  - `logs/ticket_deletions.log`
 
-# Test database connection
-http://localhost:8888/CollaboraNexio/test_db.php
+> **Nota sicurezza**: le credenziali demo (se presenti) sono per ambienti controllati. In produzione usare credenziali reali e rotazione password.
 
-# Verify API endpoints
-http://localhost:8888/CollaboraNexio/test_apis_browser.php
-```
+---
 
-### Development URLs
-- Login: `http://localhost:8888/CollaboraNexio/` or `/login.php`
-- Dashboard: `/dashboard.php`
-- Users Management: `/utenti.php`
-- Files: `/files.php`
-- Calendar: `/calendar.php`
-- Tasks: `/tasks.php`
-- Projects: `/progetti.php`
-- Chat: `/chat.php`
-- Document Approvals: `/document_approvals.php`
+## 2) Cosa fa la piattaforma (feature complete)
 
-## Architecture & Key Patterns
+### 2.1 Gestione autenticazione e sessioni
+- Login via `api/auth.php?action=login` (JSON)
+- Sessione PHP server-side con `includes/session_init.php`
+- In sessione vengono mantenuti:
+  - `user_id`, `user_name`, `user_email`
+  - `tenant_id` (azienda primaria)
+  - `user_role` (ruolo di sistema)
+  - info accessi multi-tenant (per admin/super_admin)
+- Protezione CSRF per pagine e API.
+- Policy password:
+  - supporto scadenza password, warning e redirect a cambio password
+  - endpoint per reinvio codice scadenza (super_admin)
 
-### Multi-Tenant Architecture
-Every table includes `tenant_id` for data isolation. Key tables:
-- `tenants` - Organizations
-- `users` - Users with role field
-- `user_tenant_access` - Multi-tenant access for Admin/Super Admin
-- All data tables have `tenant_id` foreign key
+### 2.2 Multi-tenancy (azienda/tenant)
+- Ogni record “tenant-scoped” è legato a `tenant_id`.
+- **Soft delete**: `deleted_at` su quasi tutte le tabelle.
+- Vincoli FK con `ON DELETE CASCADE` dove appropriato.
 
-### Role Hierarchy
-```
-user → manager → admin → super_admin
+#### Tipi utente (ruoli di sistema)
+- `super_admin`: visibilità globale (bypass tenant isolation)
+- `admin`: può gestire più aziende (multi-tenant)
+- `manager`: gestisce una singola azienda
+- `user`: utente standard
 
-- user: Single tenant, view only, NO approval rights
-- manager: Single tenant, can approve documents, full CRUD
-- admin: Multiple tenants access, manager rights
-- super_admin: All tenants, complete system control
-```
+### 2.3 Pagine principali (UI)
 
-### Document Approval Workflow
-Files have status: `in_approvazione`, `approvato`, `rifiutato`
-- New/modified documents start as `in_approvazione`
-- Only Manager/Admin/Super Admin can approve
-- Approval history tracked in `document_approvals` table
+- `dashboard.php`
+  - widget riepilogo (documenti recenti, eventi in arrivo, etc.)
+  - feed attività / metriche tenant
 
-### Authentication Pattern
-All pages follow this pattern:
+- `files.php`
+  - file manager tenant-scoped
+  - upload/download
+  - assegnazioni file (workflow)
+  - versioning (cartella `uploads/versions/...`)
+
+- `calendar.php`
+  - calendari multipli
+  - eventi, partecipanti, RSVP
+  - promemoria schedulati (cron)
+  - **SHIFT-INTEGRATION**: visualizzazione turni lavoro utente (badge informativi, non cliccabili)
+  - privacy: eventi “personali” filtrati per owner
+
+- `tasks.php`
+  - task con progress, scadenze
+  - assegnazioni con validazione FK (assignees nello stesso tenant)
+  - notifiche email task (creazione/assegnazione/update/rimozione)
+
+- `ticket.php`
+  - ticketing: creazione, assegnazione, risposta
+  - stati e SLA (tempo prima risposta)
+  - allegati ticket (upload e download)
+  - UI “closed state”: niente reply quando ticket chiuso
+
+- `aziende.php`
+  - CRUD aziende (tenant)
+  - sedi legale/operative (tabella `tenant_locations`)
+  - toggle ruoli aziendali personalizzati
+  - gestione ruoli aziendali (CRUD `tenant_roles`)
+  - **permessi per-tenant** su chi può assegnare “Ruolo Aziendale” (vedi § 2.4)
+
+- `utenti.php`
+  - CRUD utenti
+  - assegnazioni aziende (multi-tenant per admin)
+  - colonna “Tipo Utente” (ruolo di sistema)
+  - colonna “Ruolo Aziendale” (business role per-tenant)
+  - badge colorati con contrasto automatico
+  - restrizioni: un **manager non può gestire utenti admin/super_admin**
+
+- `audit_log.php`
+  - consultazione log audit (azioni create/update/delete su entità)
+
+- `configurazioni.php`
+  - impostazioni di sistema
+  - **Page Visibility** (visibilità pagine per ruolo/tenant)
+
+### 2.4 Ruoli aziendali personalizzati (Tenant Roles)
+
+Obiettivo: per alcune aziende serve distinguere gli utenti non solo per “tipo utente” (ruolo di sistema) ma anche per **ruolo business** specifico dell’azienda.
+
+#### Modello dati
+- `tenant_roles`: definizioni ruolo business per tenant
+- `user_tenant_access.tenant_role_id`: associazione (utente, tenant) → ruolo business
+- `tenants.has_custom_roles`: flag abilita/disabilita feature per tenant
+
+#### Permesso assegnazione Ruolo Aziendale (per-tenant)
+Per default l’assegnazione dei ruoli business è possibile **solo al super_admin**.
+
+- Colonna: `tenants.tenant_role_assignment_roles` (JSON array in TEXT)
+  - es: `["admin","manager"]`
+- Significato: per quel tenant, abilita quali ruoli di sistema possono **assegnare** un “Ruolo Aziendale” agli utenti.
+- Enforcement:
+  - UI: dropdown “Ruolo Aziendale” visibile solo se `can_assign_custom_roles=true`
+  - API: `api/users/tenant_role.php` blocca con 403 se il ruolo corrente non è abilitato per quel tenant.
+
+#### Endpoint principali
+- `GET api/tenant-roles/list.php?tenant_id=...`
+  - ritorna: `roles`, `tenant_has_custom_roles`, `can_assign_custom_roles`
+- CRUD:
+  - `api/tenant-roles/create.php`
+  - `api/tenant-roles/update.php`
+  - `api/tenant-roles/delete.php` (soft delete)
+- Get/set assegnazione per-tenant:
+  - `api/users/tenant_role.php` (GET/POST)
+
+---
+
+## 3) Regole CRITICHE (non negoziabili)
+
+### 3.1 Multi-tenant + soft delete (BUG-072, BUG-127)
+**Ogni query tenant-scoped** deve includere:
+
 ```php
-session_start();
+WHERE tenant_id = ? AND deleted_at IS NULL
+```
+
+Eccezione: `super_admin` può bypassare l’isolamento.
+
+### 3.2 CSRF obbligatorio ovunque (BUG-104)
+- Ogni `fetch()` deve includere:
+  - `credentials: 'same-origin'`
+  - header `X-CSRF-Token`
+- Le API devono chiamare `verifyApiCsrfToken()`.
+
+### 3.3 Formato risposta API (BUG-066)
+- Sempre `api_success([...], 'msg')`
+- Le liste vanno **incapsulate** in una chiave nominata:
+
+```php
+api_success(['users' => $users], 'OK');
+```
+
+### 3.4 Transazioni e rollback (CRITICO)
+- Se si è in transazione e si deve terminare con errore: **rollback prima** di `apiError/api_error`.
+- Dopo stored procedure con OUT param: `closeCursor()` sempre.
+
+### 3.5 Audit logging non-blocking
+Audit log è **obbligatorio**, ma **non deve mai rompere** la logica di business:
+
+```php
+try { ... } catch (Exception $e) { error_log(...); }
+```
+
+### 3.6 Validazioni OnlyOffice (BUG-135 v3)
+Prima di aprire/salvare via OnlyOffice:
+- file esiste
+- size > 0
+
+### 3.7 Compatibilità migrazioni (BUG-156)
+Quando introduci nuove colonne/feature:
+- controlla `information_schema` prima di usare colonne opzionali
+- degrada con fallback pulito
+
+### 3.8 Mai includere file con logica esecutiva (BUG-155)
+- `require_once` solo di file “lib/helper”, non di endpoint che eseguono azioni.
+
+### 3.9 Router e fallback (BUG-137/138/139/140)
+- Preferire pattern “unified endpoint” con `action` nel body
+- Fallback solo su 404, non su 401/403/500.
+
+### 3.10 Cache-busting su asset statici (Cloudflare Tunnel)
+La piattaforma in produzione è servita via **Cloudflare Tunnel** da XAMPP locale. Cloudflare cache-a CSS/JS per URL: se un file cambia contenuto ma URL resta identico, edge cache serve la versione stale fino a TTL.
+
+Regola obbligatoria in `includes/layout_head.php` e `includes/layout_end.php`:
+
+```php
+$cnxFooV = (string)((@filemtime(__DIR__.'/../assets/css/foo.css') ?: time()) . '-' . (@filesize(__DIR__.'/../assets/css/foo.css') ?: 0));
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($assetPrefix.'assets/css/foo.css?v='.$cnxFooV) ?>">
+```
+
+Si applica a **tutti** i `<link>` e `<script>` su asset versionato — incluso un file pre-esistente che ha solo cambiato contenuto. Su prima deploy con asset toccati: purge manuale Cloudflare consigliata per flush risposte già edge-cached.
+
+---
+
+## 4) Pattern di autenticazione
+
+### 4.1 Pagine
+Template minimo consigliato:
+
+```php
+<?php
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+require_once __DIR__ . '/includes/session_init.php';
 require_once __DIR__ . '/includes/auth_simple.php';
+
 $auth = new Auth();
 if (!$auth->checkAuth()) {
-    header('Location: index.php');
-    exit;
+  header('Location: index.php');
+  exit;
 }
 $currentUser = $auth->getCurrentUser();
 $csrfToken = $auth->generateCSRFToken();
+?>
 ```
 
-### API Response Pattern
-All APIs must return JSON even on errors:
+### 4.2 API
+
 ```php
-// Start of every API file
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ob_start();
-header('Content-Type: application/json; charset=utf-8');
+<?php
+require_once __DIR__ . '/../../includes/api_auth.php';
+initializeApiEnvironment();
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+verifyApiAuthentication();
+$userInfo = getApiUserInfo();
+verifyApiCsrfToken();
 
-// Use api_response.php helpers
-require_once '../../includes/api_response.php';
-api_success($data, 'Message');
-api_error('Error message', 403);
+api_success(['ok' => true], 'OK');
+?>
 ```
 
-### Database Connection
-Use the singleton Database class:
-```php
-require_once __DIR__ . '/includes/db.php';
-$db = Database::getInstance();
-$conn = $db->getConnection();
+---
+
+## 5) Database: principi e convenzioni
+
+### 5.1 Schema tenant-scoped standard
+- `tenant_id INT NOT NULL`
+- `deleted_at TIMESTAMP NULL`
+- `created_at`, `updated_at`
+- indici su `(tenant_id, created_at)` e `(tenant_id, deleted_at)`
+
+### 5.2 Accesso DB
+Usare `Database::getInstance()`:
+- `fetchOne`, `fetchAll`, `insert`, `update`
+
+**Nota**: non esiste `$db->execute()` (BUG-145a).
+
+### 5.3 Vincoli e unicità con soft delete
+Attenzione ai vincoli `UNIQUE`: se una tabella ha unique “globale” (es. `tenant_id, location_type, is_primary`) i record soft-deleted **contano comunque**.
+- Evitare pattern “soft-delete + insert” se c’è `UNIQUE` senza `deleted_at`.
+- Preferire “update in place”.
+
+---
+
+## 6) Moduli principali (approfondimento tecnico)
+
+### 6.1 Documenti e File Manager
+- Upload con validazione size > 0 pre e post `move_uploaded_file()` (BUG-136)
+- Download con check permessi tenant
+- Integrazione OnlyOffice:
+  - open/save callback
+  - URL download differenziati per Docker locale vs remoto
+  - validazione file fisico e size
+
+### 6.2 Workflow documentale
+Stati:
+
+```
+bozza → in_validazione → validato → in_approvazione → approvato
+          ↓ reject              ↓ reject
+       rifiutato ←───────────────┘
 ```
 
-### Session Management
-- CSRF tokens in `$_SESSION['csrf_token']`
-- User data in `$_SESSION['user_id']`, `$_SESSION['tenant_id']`, `$_SESSION['role']`
-- Tenant switcher for Admin/Super Admin via `/api/tenant/switch.php`
+- Ruoli di workflow:
+  - default: admin + manager come validator/approver
+  - `workflow_roles.is_active` sempre filtrato nelle query
+- Partecipanti workflow:
+  - NON esistono `validator_name/approver_name` su `document_workflow` (BUG-150b+)
+  - usare helper che ricava partecipanti selezionati
 
-## Key File Locations
+### 6.3 Calendar
+- Tabelle: `calendars`, `calendar_permissions`, `events`, `event_participants`, `event_reminders`
+- Privacy: eventi personali filtrati per owner_id (BUG-122)
+- Promemoria: cron `cron/calendar_reminders.php`
 
-### Core Configuration
-- `/config.php` - Main configuration (DB, paths, security)
-- `/includes/auth_simple.php` - Authentication class
-- `/includes/db.php` - Database singleton class
-- `/includes/api_response.php` - JSON response helpers
+### 6.4 Tasks
+- Endpoint unified: `api/tasks.php` con `action`
+- Validazione assignees nel tenant (BUG-142)
+- Notifiche email
 
-### API Endpoints
-- `/api/users/` - User management (list, create, update, delete, toggle-status, tenants)
-- `/api/documents/` - Document approval (approve, reject, pending)
-- `/api/tenant/switch.php` - Tenant switching for multi-tenant users
-- `/api/files_complete.php` - Complete file management
-- `/api/projects_complete.php` - Project management
+### 6.5 Tickets
+- Tabelle: `tickets`, `ticket_responses`, `ticket_assignments`, `ticket_notifications`, `ticket_history`, `ticket_attachments`
+- Allegati:
+  - max size e whitelist MIME
+  - path: `uploads/tickets/{tenant_id}/...`
+- Notifiche:
+  - usare helper “nuovo” (BUG-154)
+- UI stato chiuso:
+  - nascondere reply e mostrare avviso (BUG-153)
 
-### Database Scripts
-- `/database/manage_database.php` - Main database management
-- `/database/03_complete_schema.sql` - Complete schema (22 tables)
-- `/database/04_demo_data.sql` - Demo data with ON DUPLICATE KEY
-- `/database/05_approval_system.sql` - Approval system additions
+### 6.6 Audit Log
+- Logging azioni CRUD
+- Non bloccare flussi business in caso di errore audit.
 
-### Components
-- `/includes/sidebar.php` - Reusable sidebar navigation
-- `/includes/tenant_switcher.php` - Tenant dropdown for Admin/Super Admin
+### 6.7 Page Visibility
+- Tabella: `page_visibility_settings`
+- `tenant_id NULL` = globale
+- super_admin vede sempre tutto
+- Helper: `includes/page_visibility_helper.php`
 
-## Common Issues & Solutions
+### 6.8 Work Shifts (Gestione Turni)
+- Tabelle: `shift_types`, `work_shifts`, `shift_change_requests`
+- Feature flag: `tenants.has_shift_management`
+- Tipi turno: definizioni per tenant (nome, codice, orari, colore)
+- Turni assegnati: user_id + shift_date + shift_type_id, con override orari
+- Richieste modifica: change/swap/cancel con workflow approvativo
 
-### API Returns HTML Instead of JSON
-Always start APIs with error suppression and output buffering:
-```php
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ob_start();
+#### Endpoint API
+- `api/shifts/types.php`: CRUD tipi turno
+  - GET: lista tipi turno attivi
+  - POST action=create/update/delete
+- `api/shifts/list.php`: GET turni per range date (calendario)
+  - Formato compatibile FullCalendar
+  - Gestione turni notturni (overnight)
+- `api/shifts/manage.php`: CRUD turni assegnati
+  - POST action=create/update/delete/bulk_create
+  - Bulk create per pattern settimanali
+- `api/shifts/requests.php`: Richieste modifica turno
+  - GET: lista richieste
+  - POST action=create/approve/reject/cancel
+
+#### Permessi per ruolo
+- super_admin: accesso globale
+- admin/manager: gestione turni del tenant
+- user: visualizzazione propri turni + richieste modifica
+
+#### Notifiche email turni
+Helper: `includes/shift_notification_helper.php` (classe `ShiftNotificationHelper`)
+Template: `includes/email_templates/shifts/`
+
+Metodi statici disponibili:
+- `notifyShiftAssigned($shiftId, $assignedBy)`: turno assegnato
+- `notifyShiftUpdated($shiftId, $updatedBy, $changes)`: turno modificato
+- `notifyShiftCancelled($shiftId, $cancelledBy, $reason)`: turno cancellato
+- `notifyChangeRequestReceived($requestId)`: richiesta modifica ricevuta (a manager)
+- `notifyRequestApproved($requestId, $approvedBy, $notes)`: richiesta approvata
+- `notifyRequestRejected($requestId, $rejectedBy, $reason)`: richiesta rifiutata
+- `notifyBulkShiftsAssigned($shiftIds, $assignedBy)`: notifiche bulk
+
+Tutti i metodi sono non-blocking (try/catch con error_log).
+
+---
+
+## 7) Frontend: regole e best practice
+
+### 7.1 Fetch standard (obbligatorio)
+
+```js
+await fetch('/CollaboraNexio/api/endpoint.php', {
+  method: 'POST',
+  credentials: 'same-origin',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': document.getElementById('csrfToken').value
+  },
+  body: JSON.stringify({ ... })
+});
 ```
 
-### Foreign Key Constraint Errors
-Disable checks before operations:
-```sql
-SET FOREIGN_KEY_CHECKS = 0;
--- operations
-SET FOREIGN_KEY_CHECKS = 1;
+### 7.2 Async UI updates (BUG-147a)
+- ogni funzione async che aggiorna UI va `await`
+- mostrare loading state quando serve
+
+### 7.3 Event handler
+- non usare `event` implicito (BUG-132)
+
+### 7.4 Email template
+- layout con `<table>` (BUG-150a)
+- evitare flexbox/gap
+
+---
+
+## 8) Migrazioni, strumenti e manutenzione
+
+### 8.1 Migrazioni
+- directory: `database/migrations/`
+- esecuzione tipica:
+
+```bash
+mysql -u root collaboranexio < database/migrations/<file>.sql
 ```
 
-### Session/CSRF Issues
-Ensure session is started and CSRF validated:
-```php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-```
+### 8.2 Backup / restore “one-click”
+- cartella: `backups/full-backup-YYYYMMDD-HHMMSS/`
+- script PowerShell:
+  - `BACKUP.ps1`
+  - `RESTORE.ps1`
 
-## Testing Credentials
+### 8.3 Cron
+- `cron/calendar_reminders.php`
+- `cron/check_assignment_expirations.php`
+- `cron/send_password_expiry_notices.php`
 
-### Demo Users (password: Admin123!)
-- `admin@demo.local` - Admin role
-- `manager@demo.local` - Manager role
-- `user1@demo.local` - User role
-- `superadmin@collaboranexio.com` - Super Admin (if migration run)
+---
 
-## Development Workflow
+## 9) Anti-regressioni: elenco bug storici (regole sintetiche)
 
-When modifying the system:
-1. Check role permissions for the feature
-2. Ensure tenant isolation in queries
-3. Add CSRF protection to forms
-4. Return JSON from all API endpoints
-5. Update both sidebar.php instances if adding pages
-6. Test with different user roles
+- BUG-157: shift_notification_helper usare `requester_id` non `requested_by`
+- BUG-156: feature-detect colonne in `information_schema`
+- BUG-155: non includere file con logica esecutiva
+- BUG-154: notifiche ticket usare helper corretto
+- BUG-153: UI ticket chiuso non deve permettere reply
+- BUG-151: metodi chiamati esternamente devono essere `public`
+- BUG-150a: email layout a table
+- BUG-150b: chiavi array coerenti con alias SQL
+- BUG-150c: `array_unique()` su azioni UI
+- BUG-149a: NOT EXISTS non deve filtrare per deleted_at
+- BUG-149d: default workflow = admin + manager
+- BUG-148c/146a: PDO non supporta parametri named duplicati
+- BUG-147c: colonna ticket `first_response_time_minutes`
+- BUG-147b: workflow_roles is_active sempre
+- BUG-145a: usare `$db->query()` per SQL raw
+- BUG-144: non esistono `users.active_tenant_id` e `user_companies`
+- BUG-136: validare upload size > 0 pre e post move
+- BUG-135: OnlyOffice validate file exists + size
+- BUG-104: CSRF ovunque
+- BUG-066: wrap arrays in named keys
 
-## Database Tables (22 total)
+---
 
-Core: `tenants`, `users`, `user_tenant_access`, `audit_logs`
-Projects: `projects`, `project_members`, `project_milestones`
-Files: `folders`, `files`, `file_shares`, `file_versions`
-Tasks: `tasks`, `task_comments`, `task_assignments`
-Calendar: `calendar_events`, `calendar_shares`, `event_attendees`
-Chat: `chat_channels`, `chat_channel_members`, `chat_messages`, `chat_message_reads`
-System: `sessions`, `user_sessions`, `password_resets`, `notifications`, `rate_limits`, `system_settings`, `document_approvals`, `approval_notifications`, `migration_history`
+## 10) Checklist quando tocchi codice (pratico)
 
-## Important Constants
+- Hai aggiunto/alterato query tenant-scoped?
+  - ✅ `tenant_id` + ✅ `deleted_at IS NULL`
+- Hai aggiunto una nuova colonna?
+  - ✅ migration con check in `information_schema` + ✅ fallback
+- Hai aggiunto/modificato un fetch in JS?
+  - ✅ `credentials: 'same-origin'` + ✅ `X-CSRF-Token`
+- Hai introdotto una transazione?
+  - ✅ rollback prima di error
+- Hai toccato OnlyOffice?
+  - ✅ check file exists + size
+- Hai toccato email?
+  - ✅ layout table
 
-From config.php:
-- `DB_NAME`: 'collaboranexio'
-- `BASE_URL`: 'http://localhost:8888/CollaboraNexio'
-- `SESSION_LIFETIME`: 7200 (2 hours)
-- `MAX_FILE_SIZE`: 104857600 (100MB)
-- Environment: 'development' (DEBUG_MODE: true)
+---
+
+**Ultimo aggiornamento**: 2026-05-03 (UI redesign round 2 + Cloudflare cache-bust rule)
+per ogni nuova operazione, procedi sempre prima a leggere il file @CLAUDE.md. Poi inizia in sequenza a fare queste operazioni: 1) leggi @bug.md  per capire gli ultimi bug 
+risolti, e poi leggi @progression.md  per capire lo stato di sviluppo.2) pinifica le attività che svilupperai con l'ausio dei tui agenti. 3) esegui le attività pianificate anche        
+operando test e script e quant'altro serva in autonomia. 4)elimina tutti i file di test e/o simili creati e rendi la piattaforma pulita senza dati aggiuntivi utilizzati da te nel       
+test. 5) se non hai i risultati sperati, ricomincia da capo. 6) Prima di terminare ogni operazioni, dammi la % di contesto utilizzata e quella libera. Al termine aggiorna in serie      
+@CLAUDE.md , @bug.md  e @progression.md .

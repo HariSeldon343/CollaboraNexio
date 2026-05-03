@@ -462,43 +462,91 @@ class Database {
     }
 
     /**
-     * Conferma una transazione
+     * Conferma una transazione (DEFENSIVE PATTERN - BUG-045)
      *
-     * @return bool True se il commit è avvenuto con successo
-     * @throws Exception Se non in una transazione
+     * Handles state inconsistencies gracefully without throwing exceptions.
+     * Checks both class variable AND PDO actual state, syncs when needed.
+     * Identical defensive pattern to rollback() method (BUG-039).
+     *
+     * @return bool True se il commit è avvenuto con successo, false altrimenti
      */
     public function commit(): bool {
         try {
+            // Layer 1: Check class variable + PDO double-check
             if (!$this->inTransaction) {
-                throw new Exception('Nessuna transazione attiva');
+                $this->log('WARNING', 'commit() called but class inTransaction is false');
+
+                if ($this->connection->inTransaction()) {
+                    $this->log('WARNING', 'PDO has active transaction but class state was false - syncing');
+                    $this->inTransaction = true;
+                    // Continue to commit
+                } else {
+                    // Both false - nothing to commit
+                    $this->log('WARNING', 'commit() called but no active transaction in both class and PDO');
+                    return false;
+                }
             }
 
+            // Layer 2: Check ACTUAL PDO state (CRITICAL - BUG-045)
+            if (!$this->connection->inTransaction()) {
+                $this->log('WARNING', 'commit() called but PDO has no active transaction - state mismatch');
+                $this->inTransaction = false; // Sync state
+                return false;
+            }
+
+            // Layer 3: All checks passed - safe to commit
             $result = $this->connection->commit();
             if ($result) {
                 $this->inTransaction = false;
                 $this->log('DEBUG', 'Transazione confermata');
             }
-
             return $result;
 
         } catch (PDOException $e) {
             $this->log('ERROR', 'Errore commit transazione: ' . $e->getMessage());
-            throw new Exception('Impossibile confermare la transazione');
+
+            // CRITICAL: Sync state even on error
+            $this->inTransaction = false;
+
+            // Return false instead of throwing (graceful degradation)
+            return false;
         }
     }
 
     /**
-     * Annulla una transazione
+     * Annulla una transazione (DEFENSIVE PATTERN - BUG-039)
      *
-     * @return bool True se il rollback è avvenuto con successo
-     * @throws Exception Se non in una transazione
+     * Handles state inconsistencies gracefully without throwing exceptions.
+     * Checks both class variable AND PDO actual state, syncs when needed.
+     *
+     * @return bool True se il rollback è avvenuto con successo, false altrimenti
      */
     public function rollback(): bool {
         try {
+            // Step 1: Check class variable first
             if (!$this->inTransaction) {
-                throw new Exception('Nessuna transazione attiva');
+                $this->log('WARNING', 'rollback() called but class inTransaction is false');
+
+                // Double-check PDO state - maybe out of sync
+                if ($this->connection->inTransaction()) {
+                    $this->log('WARNING', 'PDO has active transaction but class state was false - syncing');
+                    $this->inTransaction = true;
+                    // Continue to rollback below
+                } else {
+                    // Both false - nothing to do
+                    $this->log('DEBUG', 'rollback() called with no transaction active (both states false)');
+                    return false;
+                }
             }
 
+            // Step 2: Check actual PDO transaction state (CRITICAL - BUG-039)
+            if (!$this->connection->inTransaction()) {
+                $this->log('WARNING', 'rollback() called but PDO has no active transaction - state mismatch');
+                $this->inTransaction = false; // Sync state
+                return false;
+            }
+
+            // Step 3: All checks passed - safe to rollback
             $result = $this->connection->rollBack();
             if ($result) {
                 $this->inTransaction = false;
@@ -509,7 +557,12 @@ class Database {
 
         } catch (PDOException $e) {
             $this->log('ERROR', 'Errore rollback transazione: ' . $e->getMessage());
-            throw new Exception('Impossibile annullare la transazione');
+
+            // CRITICAL (BUG-039): Sync state even on error
+            $this->inTransaction = false;
+
+            // Return false instead of throwing - let caller handle
+            return false;
         }
     }
 

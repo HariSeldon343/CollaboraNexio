@@ -1,15 +1,29 @@
 <?php
-session_start();
-require_once 'config.php';
-require_once 'includes/db.php';
-require_once 'includes/auth.php';
+// Initialize session with proper configuration
+require_once __DIR__ . '/includes/session_init.php';
+// Authentication check - redirect to login if not authenticated
+require_once __DIR__ . '/includes/auth_simple.php';
+$auth = new Auth();
 
-// Check authentication
-requireAuth();
+if (!$auth->checkAuth()) {
+    header('Location: index.php');
+    exit;
+}
+
+// Get current user data
+$currentUser = $auth->getCurrentUser();
+if (!$currentUser) {
+    header('Location: index.php');
+    exit;
+}
+
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
 
 // Get user role
-$user_role = $_SESSION['role'] ?? 'user';
-$user_id = $_SESSION['user_id'];
+$user_role = $currentUser['role'] ?? 'user';
+$user_id = $currentUser['id'];
 $tenant_id = $_SESSION['selected_tenant_id'] ?? $_SESSION['tenant_id'];
 
 // Only managers, admins and super_admins can access this page
@@ -26,7 +40,7 @@ $csrf_token = $auth->generateCSRFToken();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Approvazione Documenti - CollaboraNexio</title>
+    <title>Approvazione Documenti - Nexio</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>

@@ -1,15 +1,36 @@
+# Defense-in-depth: deny source/config artifacts even if root .htaccess is bypassed
+<FilesMatch "(^#.*#|\.(bak|backup|config|dist|disabled|fla|inc|ini|log|orig|psd|sh|sql|sw[op])(_.*)?|~)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
 # Enable RewriteEngine
 RewriteEngine On
 RewriteBase /CollaboraNexio/api/
 
-# Handle notifications routes
+# CRITICAL FIX - Direct file access bypass (MUST BE FIRST!)
+# This rule MUST come before any other rewrite rules
+# It allows direct access to ANY existing PHP file
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Handle notifications routes (only if not a real file)
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/unread/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/all/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/?$ notifications.php [L]
 
-# Other API routes (existing or future)
+# Router fallback - ONLY for non-existent files/directories
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

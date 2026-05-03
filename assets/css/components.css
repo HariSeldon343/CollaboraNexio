@@ -1,0 +1,2291 @@
+/* ============================================================
+   CollaboraNexio — Reusable UI Components (cnx-*)
+   UI REDESIGN 2026-05 — Step 8/11 (component-engineer)
+   Spec: docs/design/direction.md  (sezione "Components")
+   Tokens: docs/design/tokens.md  (assets/css/styles.css :root)
+
+   Loaded AFTER styles.css. All component classes are namespaced
+   with the .cnx-* prefix. Legacy .btn / .modal / .table styles
+   are NOT touched — pages migrate at their own pace.
+   ============================================================ */
+
+/* ============================================================
+   APP TOPBAR — global header with search + theme toggle
+   Round 2 reference: sun/moon pills right, search bar centered, soft accent bg
+   ============================================================ */
+.cnx-app-topbar {
+    /* Anchored to the viewport, OUTSIDE per-page stacking contexts so it never
+       gets covered by page-level absolute/sticky toolbars (e.g. turni.php). */
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    z-index: 250; /* above sidebar (200) */
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 64px;
+    padding: 0 32px;
+    /* Round 3 — flat surface, no glass: violates direction.md "no glassmorphism".
+       Was: background var(--cnx-accent-soft) + backdrop-filter blur(8px). */
+    background: var(--cnx-bg-surface);
+    border-bottom: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .cnx-app-topbar {
+    /* In dark mode, fuse with app bg so the topbar reads as one continuous
+       surface with the page content (was teal-tinted glass). */
+    background: var(--cnx-bg-app);
+    border-bottom-color: var(--cnx-border);
+}
+
+/* Reserve the 64px under the fixed topbar, so per-page content starts below. */
+.main-content {
+    padding-top: 64px;
+}
+
+@media (max-width: 1024px) {
+    .cnx-app-topbar { left: 0; padding: 0 16px; gap: 12px; }
+    .main-content   { padding-top: 56px; }
+}
+
+/* ============================================================
+   PER-PAGE HEADER — responsive normalisation (round 2.6)
+   17 pages use either <header class="header"> or <div class="header">
+   with arbitrary inline contents. Normalise to a wrapping flex row that
+   breathes at any width (without touching the legacy 60px assumption
+   of pages that still rely on .header height somewhere).
+   ============================================================ */
+.main-content > .header,
+.main-content > header.header {
+    height: auto !important;
+    min-height: 64px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    padding: 16px 24px;
+    overflow: visible;
+    background: transparent;
+    border-bottom: 1px solid var(--cnx-border);
+}
+
+.main-content > .header > .header-left,
+.main-content > header.header > .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1 1 280px; /* GROW to take available space */
+    min-width: 0;
+}
+
+.main-content > .header > .header-right,
+.main-content > header.header > .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 0 1 auto; /* SHRINK before causing horizontal overflow */
+    min-width: 0;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+/* Title block inside header-left should not collapse to a vertical column. */
+.main-content > .header .cnx-page-header__main,
+.main-content > header.header .cnx-page-header__main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.main-content > .header h1,
+.main-content > .header .header-title,
+.main-content > .header .page-title,
+.main-content > header.header h1,
+.main-content > header.header .header-title {
+    font-size: 22px;
+    line-height: 30px;
+    font-weight: 700;
+    color: var(--cnx-text-primary);
+    margin: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.main-content > .header .cnx-page-header__subtitle,
+.main-content > header.header .cnx-page-header__subtitle {
+    font-size: 13px;
+    color: var(--cnx-text-muted);
+    margin: 0;
+    white-space: normal;
+}
+
+/* Header buttons: shrink and never overflow. */
+.main-content > .header .btn,
+.main-content > header.header .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Mobile: stack header rows */
+@media (max-width: 900px) {
+    .main-content > .header,
+    .main-content > header.header {
+        padding: 12px 16px;
+    }
+    .main-content > .header h1,
+    .main-content > .header .page-title,
+    .main-content > header.header h1,
+    .main-content > header.header .header-title {
+        font-size: 18px;
+        line-height: 24px;
+    }
+}
+
+/* Page-content also gets a sane wrap to prevent horizontal scrollbars
+   on tables and toolbars at narrower widths. */
+.main-content > .page-content,
+.main-content .page-content {
+    overflow-x: hidden;
+}
+
+/* ============================================================
+   Coachmark / wizard popups (turni.php "Tipi Turno" Step 1/5):
+   keep them BELOW the global topbar so the search bar isn't covered.
+   ============================================================ */
+.coachmark,
+.coachmark-overlay,
+[id^="coachmark"],
+[id*="Coachmark"] {
+    z-index: 240 !important; /* below .cnx-app-topbar (250) */
+}
+
+/* turni.php has an alert banner ".tipi-turno-warning" that needs same
+   treatment if it ever floats. */
+.tipi-turno-warning,
+.shifts-warning {
+    z-index: 240 !important;
+}
+
+.cnx-app-topbar__search {
+    flex: 1;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.cnx-app-topbar__search .cnx-input {
+    height: 44px;
+    padding-left: 40px;
+    background: var(--cnx-bg-surface);
+    border-color: transparent;
+    border-radius: var(--cnx-radius-pill);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-app-topbar__search .cnx-input:focus {
+    border-color: var(--cnx-accent);
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-app-topbar__spacer {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .cnx-app-topbar { padding: 0 16px; height: 56px; }
+    .cnx-app-topbar__search .cnx-input { height: 40px; }
+}
+
+/* ============================================================
+   LEGACY BUTTON ALIGNMENT — mint accent on .btn-primary
+   Migrates the entire app's primary CTAs to the new mint accent
+   without touching every page. Targeted override; non-primary
+   variants (.btn-secondary, .btn-ghost, .btn-success, .btn-error)
+   keep their existing semantic colors.
+   ============================================================ */
+.btn-primary,
+.btn.btn-primary {
+    background-color: var(--cnx-accent) !important;
+    border-color: var(--cnx-accent) !important;
+    color: var(--cnx-accent-ink) !important;
+}
+
+.btn-primary:hover,
+.btn.btn-primary:hover {
+    background-color: var(--cnx-accent-hover) !important;
+    border-color: var(--cnx-accent-hover) !important;
+}
+
+.btn-primary:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+/* Legacy outline-style primary anchors used in dashboard widgets ("Apri Turni", etc.) */
+.btn-outline {
+    color: var(--cnx-accent) !important;
+}
+.btn-outline:hover {
+    color: var(--cnx-accent-hover) !important;
+}
+
+/* ============================================================
+   DARK MODE — fallback overrides for pages with hardcoded white
+   backgrounds (audit_log.php inline <style>, modal-content, etc).
+   These cover legacy "background: white" / "color: #1F2937" rules
+   that bypass our --color-* token system.
+   ============================================================ */
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .filters-card,
+[data-theme="dark"] .audit-table-container,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .data-table {
+    background: var(--cnx-bg-surface) !important;
+    color: var(--cnx-text-primary) !important;
+}
+
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .filter-label,
+[data-theme="dark"] .modal-header h2 {
+    color: var(--cnx-text-primary) !important;
+}
+
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .form-text,
+[data-theme="dark"] .text-muted {
+    color: var(--cnx-text-muted) !important;
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="datetime-local"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border-color: var(--cnx-border) !important;
+}
+
+/* ============================================================
+   HERO CARD — dashboard greeting (reference: Monday 25th)
+   ============================================================ */
+.cnx-hero-card {
+    display: flex;
+    align-items: stretch;
+    gap: 24px;
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    padding: 32px 40px;
+    overflow: hidden;
+    position: relative;
+}
+
+.cnx-hero-card__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cnx-hero-card__weekday {
+    font-size: 36px;
+    line-height: 44px;
+    font-weight: 600;
+    color: var(--cnx-text-primary);
+    letter-spacing: -0.01em;
+}
+
+.cnx-hero-card__date {
+    font-size: 56px;
+    line-height: 64px;
+    font-weight: 700;
+    color: var(--cnx-text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.cnx-hero-card__suffix {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--cnx-text-muted);
+    text-transform: lowercase;
+    letter-spacing: 0;
+}
+
+.cnx-hero-card__greeting {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-hero-card__tagline {
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--cnx-accent);
+    font-weight: 500;
+    margin: 0;
+}
+
+.cnx-hero-card__art {
+    flex: 0 0 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cnx-accent);
+    opacity: 0.7;
+}
+
+.cnx-hero-card__art svg {
+    width: 200px;
+    height: 160px;
+}
+
+@media (max-width: 760px) {
+    .cnx-hero-card { padding: 24px; }
+    .cnx-hero-card__art { display: none; }
+    .cnx-hero-card__date { font-size: 44px; line-height: 52px; }
+    .cnx-hero-card__weekday { font-size: 28px; line-height: 36px; }
+}
+
+/* ---------- Utility: section label ---------- */
+.cnx-section-label {
+    font-size: var(--cnx-text-caption-size);
+    line-height: var(--cnx-text-caption-line);
+    font-weight: 600;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    text-transform: uppercase;
+    color: var(--cnx-text-muted);
+    margin-bottom: 12px;
+    display: block;
+}
+
+/* ============================================================
+   BUTTONS — pill, three variants
+   ============================================================ */
+.cnx-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 20px;
+    font-family: inherit;
+    font-size: var(--cnx-text-body-size);
+    font-weight: 600;
+    line-height: 1;
+    border-radius: var(--cnx-radius-pill);
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    user-select: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-btn:disabled,
+.cnx-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.cnx-btn--primary {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+
+.cnx-btn--primary:hover:not(:disabled) {
+    background: var(--cnx-accent-hover);
+    border-color: var(--cnx-accent-hover);
+}
+
+.cnx-btn--secondary {
+    background: transparent;
+    color: var(--cnx-text-primary);
+    border-color: var(--cnx-border-strong);
+}
+
+.cnx-btn--secondary:hover:not(:disabled) {
+    background: var(--cnx-bg-subtle);
+}
+
+.cnx-btn--ghost {
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    border-color: transparent;
+}
+
+.cnx-btn--ghost:hover:not(:disabled) {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-btn--sm {
+    height: 32px;
+    padding: 0 14px;
+    font-size: var(--cnx-text-small-size);
+}
+
+.cnx-btn--icon {
+    width: 40px;
+    padding: 0;
+    border-radius: var(--cnx-radius-pill);
+}
+
+.cnx-btn--icon.cnx-btn--sm {
+    width: 32px;
+}
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+.cnx-input {
+    display: block;
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-primary);
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-md);
+    transition: var(--cnx-transition);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-input::placeholder {
+    color: var(--cnx-text-muted);
+}
+
+.cnx-input:focus {
+    outline: none;
+    border-color: var(--cnx-accent);
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-input:disabled {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    cursor: not-allowed;
+}
+
+/* Search input — pill variant with prefix icon */
+.cnx-input-group {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+}
+
+.cnx-input-group__icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--cnx-text-muted);
+    pointer-events: none;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+}
+
+.cnx-input--search {
+    border-radius: var(--cnx-radius-pill);
+    background: var(--cnx-bg-subtle);
+    border-color: transparent;
+    padding-left: 38px;
+}
+
+.cnx-input--search:focus {
+    background: var(--cnx-bg-surface);
+    border-color: var(--cnx-accent);
+}
+
+/* ============================================================
+   FILTER PILL (dropdown trigger)
+   ============================================================ */
+.cnx-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: var(--cnx-text-small-size);
+    font-weight: 500;
+    color: var(--cnx-text-secondary);
+    background: var(--cnx-bg-subtle);
+    border: 1px solid transparent;
+    border-radius: var(--cnx-radius-pill);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-filter-pill:hover {
+    background: var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-filter-pill:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-filter-pill[aria-expanded="true"],
+.cnx-filter-pill.is-active {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+}
+
+.cnx-filter-pill__chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   CARD
+   ============================================================ */
+.cnx-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    padding: var(--cnx-space-card-padding);
+}
+
+.cnx-card--flat {
+    box-shadow: none;
+}
+
+.cnx-card--padding-lg { padding: 32px; }
+.cnx-card--padding-sm { padding: 16px; }
+
+.cnx-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.cnx-card__title {
+    font-size: var(--cnx-text-h2-size);
+    line-height: var(--cnx-text-h2-line);
+    font-weight: var(--cnx-text-h2-weight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-card__subtitle {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+    margin: 4px 0 0;
+}
+
+/* ============================================================
+   BREADCRUMB
+   ============================================================ */
+.cnx-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--cnx-text-small-size);
+    line-height: 1.4;
+    color: var(--cnx-text-muted);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cnx-breadcrumb__item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.cnx-breadcrumb__link {
+    color: var(--cnx-text-secondary);
+    text-decoration: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-breadcrumb__link:hover {
+    color: var(--cnx-accent);
+}
+
+.cnx-breadcrumb__sep {
+    color: var(--cnx-text-muted);
+    margin: 0 4px;
+    user-select: none;
+}
+
+.cnx-breadcrumb__item--current {
+    color: var(--cnx-text-primary);
+    font-weight: 600;
+}
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+.cnx-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--cnx-border);
+    flex-wrap: wrap;
+}
+
+.cnx-page-header__main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cnx-page-header__title {
+    font-size: var(--cnx-text-h1-size);
+    line-height: var(--cnx-text-h1-line);
+    font-weight: var(--cnx-text-h1-weight);
+    letter-spacing: var(--cnx-tracking-tight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-page-header__subtitle {
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-muted);
+    margin: 0;
+}
+
+.cnx-page-header__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cnx-page-header--no-border {
+    border-bottom: 0;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+}
+
+/* Display heading (Dashboard greeting) */
+.cnx-display {
+    font-size: var(--cnx-text-display-size);
+    line-height: var(--cnx-text-display-line);
+    font-weight: var(--cnx-text-display-weight);
+    letter-spacing: var(--cnx-tracking-tight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.cnx-table-wrap {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    overflow: hidden;
+}
+
+.cnx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-secondary);
+}
+
+.cnx-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cnx-border);
+}
+
+.cnx-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--cnx-border);
+    vertical-align: middle;
+    color: var(--cnx-text-primary);
+}
+
+.cnx-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cnx-table tbody tr {
+    transition: background-color 120ms ease;
+}
+
+.cnx-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+
+.cnx-table tbody tr.is-selected {
+    background: var(--cnx-accent-soft);
+}
+
+.cnx-table .cnx-table__checkbox {
+    width: 32px;
+    padding-right: 0;
+}
+
+.cnx-table__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--cnx-text-primary);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.cnx-table__name:hover {
+    color: var(--cnx-accent);
+}
+
+.cnx-table__name-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--cnx-text-muted);
+}
+
+/* Action cell ⋯ */
+.cnx-table__actions {
+    text-align: right;
+    width: 56px;
+}
+
+/* ============================================================
+   BADGE
+   ============================================================ */
+.cnx-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    border-radius: var(--cnx-radius-sm);
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid transparent;
+}
+
+.cnx-badge--success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803D;
+}
+
+.cnx-badge--warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #B45309;
+}
+
+.cnx-badge--danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #B91C1C;
+}
+
+.cnx-badge--info,
+.cnx-badge--accent {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+}
+
+/* Dark theme badge color tweaks (text legibility) */
+[data-theme="dark"] .cnx-badge--success { color: #4ADE80; }
+[data-theme="dark"] .cnx-badge--warning { color: #FBBF24; }
+[data-theme="dark"] .cnx-badge--danger  { color: #F87171; }
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.cnx-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 26, 31, 0.48);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.cnx-modal.is-open,
+.cnx-modal[aria-hidden="false"] {
+    display: flex;
+    animation: cnx-fade-in 180ms ease-out;
+}
+
+.cnx-modal__dialog {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 48px);
+    background: var(--cnx-bg-surface);
+    border-radius: var(--cnx-radius-xl);
+    box-shadow: var(--cnx-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: cnx-modal-pop 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cnx-modal__dialog--lg { max-width: 720px; }
+.cnx-modal__dialog--sm { max-width: 420px; }
+
+.cnx-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 24px 24px 16px;
+}
+
+.cnx-modal__title {
+    font-size: var(--cnx-text-h2-size);
+    line-height: var(--cnx-text-h2-line);
+    font-weight: var(--cnx-text-h2-weight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: var(--cnx-radius-pill);
+    color: var(--cnx-text-muted);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-modal__close:hover {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-modal__body {
+    padding: 8px 24px 24px;
+    overflow-y: auto;
+}
+
+.cnx-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--cnx-border);
+}
+
+@keyframes cnx-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes cnx-modal-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ============================================================
+   DROPZONE  (used inside upload modal)
+   ============================================================ */
+.cnx-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 24px;
+    background: var(--cnx-accent-soft);
+    border: 2px dashed var(--cnx-accent);
+    border-radius: var(--cnx-radius-lg);
+    color: var(--cnx-text-secondary);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-dropzone:hover,
+.cnx-dropzone.is-dragover {
+    background: rgba(95, 202, 211, 0.16);
+    border-color: var(--cnx-accent-hover);
+}
+
+.cnx-dropzone__icon {
+    width: 40px;
+    height: 40px;
+    color: var(--cnx-accent);
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E");
+}
+
+.cnx-dropzone__title {
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-primary);
+    font-weight: 600;
+    margin: 0;
+}
+
+.cnx-dropzone__hint {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+    margin: 0;
+}
+
+.cnx-dropzone__input {
+    display: none;
+}
+
+/* Upload progress list inside modal */
+.cnx-upload-list {
+    margin-top: 16px;
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cnx-upload-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--cnx-bg-subtle);
+    border-radius: var(--cnx-radius-md);
+    font-size: var(--cnx-text-small-size);
+}
+
+.cnx-upload-item__name {
+    flex: 1;
+    color: var(--cnx-text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cnx-upload-item__progress {
+    width: 96px;
+    height: 6px;
+    background: var(--cnx-border);
+    border-radius: var(--cnx-radius-pill);
+    overflow: hidden;
+}
+
+.cnx-upload-item__progress > span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--cnx-accent);
+    transition: width 220ms ease;
+    border-radius: var(--cnx-radius-pill);
+}
+
+/* Modal tabs (File / Folder) */
+.cnx-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--cnx-bg-subtle);
+    border-radius: var(--cnx-radius-pill);
+    margin-bottom: 16px;
+}
+
+.cnx-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    font-size: var(--cnx-text-small-size);
+    font-weight: 500;
+    border-radius: var(--cnx-radius-pill);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-tab[aria-selected="true"],
+.cnx-tab.is-active {
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-tab:hover:not([aria-selected="true"]) {
+    color: var(--cnx-text-primary);
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.cnx-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    max-width: 320px;
+}
+
+.cnx-toast {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-left: 3px solid var(--cnx-text-muted);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-lg);
+    padding: 12px 16px;
+    color: var(--cnx-text-primary);
+    font-size: var(--cnx-text-small-size);
+    pointer-events: auto;
+    animation: cnx-toast-in 200ms ease-out;
+}
+
+.cnx-toast--success { border-left-color: var(--cnx-success); }
+.cnx-toast--warning { border-left-color: var(--cnx-warning); }
+.cnx-toast--danger  { border-left-color: var(--cnx-danger); }
+.cnx-toast--info    { border-left-color: var(--cnx-accent); }
+
+.cnx-toast.is-leaving {
+    animation: cnx-toast-out 180ms ease-in forwards;
+}
+
+@keyframes cnx-toast-in {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cnx-toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(12px); }
+}
+
+/* ============================================================
+   LIST helpers (avatar group, simple stat row)
+   ============================================================ */
+.cnx-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cnx-stat__label {
+    font-size: var(--cnx-text-caption-size);
+    text-transform: uppercase;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    color: var(--cnx-text-muted);
+    font-weight: 600;
+}
+
+.cnx-stat__value {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 700;
+    color: var(--cnx-text-primary);
+    letter-spacing: var(--cnx-tracking-tight);
+}
+
+.cnx-stat__hint {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+}
+
+/* ============================================================
+   GRID helpers (responsive 3-col / 2-col)
+   ============================================================ */
+.cnx-grid {
+    display: grid;
+    gap: 24px;
+}
+
+.cnx-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cnx-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+    .cnx-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+    .cnx-grid--3, .cnx-grid--2 { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   GLOBAL SEARCH DROPDOWN — wired to /api/search/global.php
+   Shows categorized results (File, Utenti, Ticket, Task) under
+   the topbar search field. Round 3 — search becomes functional.
+   ============================================================ */
+.cnx-app-topbar__search {
+    position: relative; /* anchor for the dropdown */
+}
+
+.cnx-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 260; /* above topbar (250) */
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-md, 10px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.cnx-search-empty {
+    padding: 16px 20px;
+    color: var(--cnx-text-muted);
+    font-size: 14px;
+}
+
+.cnx-search-section {
+    padding: 4px 0;
+}
+.cnx-search-section + .cnx-search-section {
+    border-top: 1px solid var(--cnx-border);
+}
+.cnx-search-section__title {
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--cnx-text-muted);
+}
+
+.cnx-search-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    text-decoration: none;
+    color: var(--cnx-text-primary);
+    transition: background 120ms ease;
+}
+.cnx-search-result:hover,
+.cnx-search-result:focus-visible {
+    background: var(--cnx-bg-subtle);
+    outline: none;
+}
+
+.cnx-search-result__icon {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--cnx-accent-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cnx-search-result[data-icon="folder"] .cnx-search-result__icon::before { content: "📁"; font-size: 14px; }
+.cnx-search-result[data-icon="file"]   .cnx-search-result__icon::before { content: "📄"; font-size: 14px; }
+.cnx-search-result[data-icon="user"]   .cnx-search-result__icon::before { content: "👤"; font-size: 14px; }
+.cnx-search-result[data-icon="ticket"] .cnx-search-result__icon::before { content: "🎫"; font-size: 14px; }
+.cnx-search-result[data-icon="task"]   .cnx-search-result__icon::before { content: "✓";  font-size: 14px; color: var(--cnx-accent); }
+
+.cnx-search-result__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+.cnx-search-result__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cnx-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cnx-search-result__sublabel {
+    font-size: 12px;
+    color: var(--cnx-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .cnx-search-results {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    border-color: var(--cnx-border-strong);
+}
+
+/* ============================================================
+   Body link reset for cnx- areas (no underline by default)
+   ============================================================ */
+.cnx-link {
+    color: var(--cnx-accent);
+    text-decoration: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-link:hover {
+    color: var(--cnx-accent-hover);
+}
+
+/* ============================================================================
+   ROUND 3 — DARK MODE SYSTEMIC FIXES
+   Address 186 audit findings across 10 pages by overriding hardcoded white
+   backgrounds, missing button rules, neon legacy accents, invisible borders,
+   and page-specific containers that bypassed the global token cascade.
+
+   All rules live under [data-theme="dark"] so light mode is untouched.
+   ============================================================================ */
+
+/* ----- Global: missing .btn-danger rule (used by aziende "Elimina selezionate") */
+.btn-danger {
+    background: var(--cnx-danger);
+    color: #fff;
+    border: 1px solid var(--cnx-danger);
+    border-radius: var(--cnx-radius-md, 10px);
+    padding: 8px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: filter 150ms ease;
+}
+.btn-danger:hover { filter: brightness(0.92); }
+.btn-danger:disabled,
+.btn-danger[disabled] {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    border-color: var(--cnx-border);
+    cursor: not-allowed;
+}
+
+/* ----- Action-row icon buttons (aziende/utenti):
+   Pencil/users/trash/key emoji can't be color-tinted via CSS color, so we
+   neutralise the saturation. Markup change to SVG would be ideal; this is
+   the CSS-only mitigation flagged in the audit. */
+[data-theme="dark"] .actions button,
+[data-theme="dark"] .action-buttons button,
+[data-theme="dark"] .table-actions button {
+    background: var(--cnx-bg-subtle);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-secondary);
+}
+[data-theme="dark"] .actions button > *,
+[data-theme="dark"] .action-buttons button > *,
+[data-theme="dark"] .table-actions button > * {
+    filter: grayscale(0.65) brightness(1.05);
+}
+
+/* ============================================================================
+   AUDIT_LOG.PHP — KNOWN BIG ISSUE: white slabs in dark mode
+   ============================================================================ */
+[data-theme="dark"] .filters-container,
+[data-theme="dark"] .table-container {
+    background: var(--cnx-bg-surface) !important;
+    border-color: var(--cnx-border) !important;
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .filters-container h2,
+[data-theme="dark"] .filters-container label,
+[data-theme="dark"] .table-container h2,
+[data-theme="dark"] .filter-group label {
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .filters-container input,
+[data-theme="dark"] .filters-container select,
+[data-theme="dark"] .filters-container textarea,
+[data-theme="dark"] .filter-group input,
+[data-theme="dark"] .filter-group select {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+/* Reset/Esporta secondary buttons: were white-on-white, invisible. */
+[data-theme="dark"] .filters-container .btn-secondary,
+[data-theme="dark"] .table-container .btn-secondary,
+[data-theme="dark"] .audit-table .btn-secondary {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 1px solid var(--cnx-border-strong) !important;
+}
+[data-theme="dark"] .audit-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .audit-table tbody tr {
+    background: transparent;
+    border-bottom-color: var(--cnx-border);
+}
+[data-theme="dark"] .audit-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+
+/* ============================================================================
+   TASKS.PHP — yellow alert banners hardcoded #FEF3C7/#92400E
+   These are inline <style> in tasks.php; the only CSS-only path is to override
+   the matching selectors here in dark mode.
+   ============================================================================ */
+[data-theme="dark"] .alert,
+[data-theme="dark"] .alert-warning,
+[data-theme="dark"] .alert-info,
+[data-theme="dark"] .multi-tenant-warning,
+[data-theme="dark"] .orphan-tasks-warning {
+    background: rgba(251, 191, 36, 0.10) !important;
+    color: #FBBF24 !important;
+    border: 1px solid rgba(251, 191, 36, 0.32) !important;
+}
+[data-theme="dark"] .alert a,
+[data-theme="dark"] .alert-warning a,
+[data-theme="dark"] .alert-info a,
+[data-theme="dark"] .orphan-tasks-warning a {
+    color: var(--cnx-accent) !important;
+    text-decoration: underline;
+}
+/* Filter pills row — "Tutti" was bright legacy blue */
+[data-theme="dark"] .filter-tabs .filter-tab,
+[data-theme="dark"] .task-filter-tab,
+[data-theme="dark"] .filter-pill {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .filter-tabs .filter-tab.active,
+[data-theme="dark"] .task-filter-tab.active,
+[data-theme="dark"] .filter-pill.active,
+[data-theme="dark"] .filter-pill[aria-selected="true"] {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+/* Task kanban columns + cards */
+[data-theme="dark"] .kanban-column,
+[data-theme="dark"] .task-column {
+    background: transparent;
+}
+[data-theme="dark"] .task-card,
+[data-theme="dark"] .kanban-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+
+/* ============================================================================
+   FILES.PHP — purple gradient "Cartella Tenant" + drop-zone white
+   ============================================================================ */
+#createRootFolderBtn {
+    /* Strip the off-brand purple gradient in BOTH themes. */
+    background: var(--cnx-accent) !important;
+    background-image: none !important;
+    color: var(--cnx-accent-ink) !important;
+    border: 1px solid var(--cnx-accent) !important;
+    box-shadow: none !important;
+}
+#createRootFolderBtn:hover {
+    background: var(--cnx-accent-hover) !important;
+}
+[data-theme="dark"] #createRootFolderBtn {
+    background: var(--cnx-accent) !important;
+    color: var(--cnx-accent-ink) !important;
+}
+
+/* Drop-zone overlay — was rgba(255,255,255,0.97) flash on dark UI */
+[data-theme="dark"] .drop-zone-overlay,
+[data-theme="dark"] .upload-overlay,
+[data-theme="dark"] .file-drop-overlay {
+    background: rgba(15, 26, 29, 0.92) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 2px dashed var(--cnx-accent) !important;
+}
+
+/* btn-secondary global override (workflow.css hardcoded #6b7280 white text)
+   leaks into "Nuovo Documento" + every secondary button site-wide. */
+[data-theme="dark"] .btn-secondary {
+    background: var(--cnx-bg-subtle) !important;
+    color: var(--cnx-text-primary) !important;
+    border: 1px solid var(--cnx-border-strong) !important;
+}
+[data-theme="dark"] .btn-secondary:hover {
+    background: var(--cnx-border) !important;
+}
+
+/* File-manager grid + list rows */
+[data-theme="dark"] .file-grid-item,
+[data-theme="dark"] .file-list-item,
+[data-theme="dark"] .folder-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .file-grid-item:hover,
+[data-theme="dark"] .file-list-item:hover {
+    background: var(--cnx-bg-subtle);
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .file-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom: 1px solid var(--cnx-border-strong);
+}
+
+/* ============================================================================
+   DASHBOARD.PHP — hero-card SVG art, stat-cards, calendar widget
+   ============================================================================ */
+[data-theme="dark"] .cnx-hero-card {
+    background: linear-gradient(135deg, #0F2D31 0%, #0A1517 100%);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .cnx-hero-card__art svg [stroke="#0F1A1F"],
+[data-theme="dark"] .cnx-hero-card__art svg [stroke="#0F2D31"] {
+    stroke: var(--cnx-accent) !important;
+    opacity: 0.65;
+}
+[data-theme="dark"] .cnx-hero-card__art svg path,
+[data-theme="dark"] .cnx-hero-card__art svg rect,
+[data-theme="dark"] .cnx-hero-card__art svg circle,
+[data-theme="dark"] .cnx-hero-card__art svg line {
+    stroke: rgba(95, 202, 211, 0.55);
+}
+[data-theme="dark"] .cnx-hero-card__tagline {
+    color: var(--cnx-accent);
+    opacity: 0.85;
+}
+/* Mini calendar inside dashboard — invisible event dots */
+[data-theme="dark"] .mini-calendar-day .event-dot,
+[data-theme="dark"] .mini-cal-dot {
+    background: var(--cnx-accent);
+}
+
+/* ============================================================================
+   CALENDAR.PHP — toolbar buttons, event chips, grid lines
+   ============================================================================ */
+[data-theme="dark"] .calendar-toolbar .btn,
+[data-theme="dark"] .calendar-controls .btn,
+[data-theme="dark"] .view-switcher .btn {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .calendar-toolbar .btn.active,
+[data-theme="dark"] .calendar-controls .btn.active,
+[data-theme="dark"] .view-switcher .btn.active {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+[data-theme="dark"] .calendar-grid,
+[data-theme="dark"] .fc-daygrid,
+[data-theme="dark"] .calendar-month {
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .calendar-day,
+[data-theme="dark"] .calendar-cell,
+[data-theme="dark"] .fc-daygrid-day {
+    border-color: var(--cnx-border-strong);
+    background: var(--cnx-bg-app);
+}
+[data-theme="dark"] .calendar-weekdays,
+[data-theme="dark"] .calendar-header-row,
+[data-theme="dark"] .fc-col-header {
+    background: var(--cnx-bg-subtle);
+    border-bottom: 1px solid var(--cnx-border-strong);
+    color: var(--cnx-text-secondary);
+}
+[data-theme="dark"] .calendar-day.other-month,
+[data-theme="dark"] .calendar-day.outside,
+[data-theme="dark"] .fc-day-other {
+    opacity: 0.45;
+}
+/* Dim oversaturated event chips — they keep their hue but lose the neon */
+[data-theme="dark"] .calendar-event,
+[data-theme="dark"] .fc-event {
+    filter: saturate(0.7) brightness(0.92);
+}
+
+/* ============================================================================
+   TURNI.PHP — toolbar buttons, today indicator, grid
+   ============================================================================ */
+[data-theme="dark"] .shifts-toolbar .btn,
+[data-theme="dark"] .shifts-header button {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .shifts-toolbar .btn.active,
+[data-theme="dark"] .shifts-header button.active {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+[data-theme="dark"] .shifts-grid .day-cell,
+[data-theme="dark"] .shifts-grid .week-cell,
+[data-theme="dark"] .shifts-cell {
+    border-color: var(--cnx-border-strong);
+    background: var(--cnx-bg-app);
+}
+[data-theme="dark"] .shifts-grid .today,
+[data-theme="dark"] .shifts-cell.today,
+[data-theme="dark"] .day-cell.today {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent);
+}
+[data-theme="dark"] .shifts-grid .day-cell.today .day-number,
+[data-theme="dark"] .day-number.today {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+}
+[data-theme="dark"] .shifts-requests-sidebar,
+[data-theme="dark"] .requests-panel {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .shift-empty-state {
+    color: var(--cnx-text-muted);
+}
+
+/* ============================================================================
+   TICKET.PHP — primary CTA, badges, stat cards, filter inputs
+   ============================================================================ */
+[data-theme="dark"] .ticket-stats-grid .stat-card,
+[data-theme="dark"] .ticket-stat-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+[data-theme="dark"] .ticket-filter-row select,
+[data-theme="dark"] .ticket-filter-row input,
+[data-theme="dark"] .ticket-filters input,
+[data-theme="dark"] .ticket-filters select {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+/* Status / priority badges — pill fill that was missing (undefined tokens) */
+[data-theme="dark"] .ticket-status,
+[data-theme="dark"] .ticket-priority,
+[data-theme="dark"] .badge-status,
+[data-theme="dark"] .badge-priority {
+    background: var(--cnx-bg-subtle);
+    border: 1px solid var(--cnx-border-strong);
+    color: var(--cnx-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--cnx-radius-sm, 6px);
+}
+[data-theme="dark"] .ticket-status.open,
+[data-theme="dark"] .badge-status.open {
+    background: rgba(95, 202, 211, 0.14);
+    color: var(--cnx-accent);
+    border-color: rgba(95, 202, 211, 0.32);
+}
+[data-theme="dark"] .ticket-status.resolved,
+[data-theme="dark"] .badge-status.resolved {
+    background: rgba(45, 212, 191, 0.14);
+    color: #2DD4BF;
+    border-color: rgba(45, 212, 191, 0.32);
+}
+[data-theme="dark"] .ticket-priority.alta,
+[data-theme="dark"] .ticket-priority.critica,
+[data-theme="dark"] .badge-priority.high {
+    background: rgba(248, 113, 113, 0.14);
+    color: #F87171;
+    border-color: rgba(248, 113, 113, 0.32);
+}
+
+/* ============================================================================
+   AZIENDE.PHP + UTENTI.PHP — search, table headers, role badges, modal
+   ============================================================================ */
+[data-theme="dark"] .users-table thead th,
+[data-theme="dark"] .companies-table thead th,
+[data-theme="dark"] .data-table thead th,
+[data-theme="dark"] table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border-bottom: 1px solid var(--cnx-border-strong);
+}
+[data-theme="dark"] .users-table tbody tr,
+[data-theme="dark"] .companies-table tbody tr,
+[data-theme="dark"] .data-table tbody tr {
+    border-bottom-color: var(--cnx-border);
+}
+[data-theme="dark"] .users-table tbody tr:hover,
+[data-theme="dark"] .companies-table tbody tr:hover,
+[data-theme="dark"] .data-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+/* Role-type badges (UTENTE/MANAGER/ADMIN) were pastel hex — replace with
+   token pairs that flip in dark mode. */
+[data-theme="dark"] .role-badge,
+[data-theme="dark"] .badge-role {
+    border: 1px solid var(--cnx-border-strong);
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--cnx-radius-sm, 6px);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+}
+[data-theme="dark"] .role-badge.role-utente,
+[data-theme="dark"] .role-badge.role-user,
+[data-theme="dark"] .badge-role.user {
+    background: rgba(95, 202, 211, 0.14);
+    color: var(--cnx-accent);
+    border-color: rgba(95, 202, 211, 0.32);
+}
+[data-theme="dark"] .role-badge.role-manager,
+[data-theme="dark"] .badge-role.manager {
+    background: rgba(168, 181, 187, 0.14);
+    color: var(--cnx-text-secondary);
+    border-color: var(--cnx-border-strong);
+}
+[data-theme="dark"] .role-badge.role-admin,
+[data-theme="dark"] .role-badge.role-super-admin,
+[data-theme="dark"] .badge-role.admin {
+    background: rgba(45, 212, 191, 0.14);
+    color: #2DD4BF;
+    border-color: rgba(45, 212, 191, 0.32);
+}
+/* Modal containers — were inheriting --color-white legacy = darker than card */
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .modal-body,
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    border-color: var(--cnx-border);
+}
+[data-theme="dark"] .modal-content input,
+[data-theme="dark"] .modal-content select,
+[data-theme="dark"] .modal-content textarea {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+
+/* ============================================================================
+   CONFIGURAZIONI.PHP — tab strip + toggle switches
+   ============================================================================ */
+[data-theme="dark"] .tab-btn,
+[data-theme="dark"] .config-tabs button {
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    border-bottom: 2px solid transparent;
+}
+[data-theme="dark"] .tab-btn.active,
+[data-theme="dark"] .config-tabs button.active {
+    color: var(--cnx-accent);
+    border-bottom-color: var(--cnx-accent);
+    background: transparent;
+}
+[data-theme="dark"] .toggle-switch input:checked + .toggle-slider,
+[data-theme="dark"] .switch input:checked + .slider,
+[data-theme="dark"] input:checked + .toggle-slider {
+    background-color: var(--cnx-accent) !important;
+}
+[data-theme="dark"] .config-section,
+[data-theme="dark"] .settings-section,
+[data-theme="dark"] .config-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+}
+
+/* ============================================================================
+   FILTER INPUTS — site-wide search/filter controls had invisible borders
+   ============================================================================ */
+[data-theme="dark"] .search-input,
+[data-theme="dark"] .filter-input,
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="text"]:not(.cnx-input),
+[data-theme="dark"] input[type="email"]:not(.cnx-input),
+[data-theme="dark"] input[type="number"]:not(.cnx-input),
+[data-theme="dark"] input[type="date"]:not(.cnx-input),
+[data-theme="dark"] select:not(.cnx-input),
+[data-theme="dark"] textarea:not(.cnx-input) {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border-strong);
+}
+[data-theme="dark"] .search-input::placeholder,
+[data-theme="dark"] .filter-input::placeholder,
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: var(--cnx-text-muted);
+    opacity: 0.85;
+}
+[data-theme="dark"] .search-input:focus,
+[data-theme="dark"] .filter-input:focus,
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    outline: none;
+    border-color: var(--cnx-accent);
+    box-shadow: 0 0 0 2px rgba(95, 202, 211, 0.2);
+}
+
+/* ============================================================================
+   STAT CARDS — unify .stat-card legacy in dark
+   ============================================================================ */
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .dashboard-stat-card,
+[data-theme="dark"] .info-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+[data-theme="dark"] .stat-card .stat-label,
+[data-theme="dark"] .stat-card label {
+    color: var(--cnx-text-secondary);
+    letter-spacing: 0.04em;
+}
+[data-theme="dark"] .stat-card .stat-value,
+[data-theme="dark"] .stat-card strong {
+    color: var(--cnx-text-primary);
+}
+
+/* ============================================================================
+   ROUND 4 — RESPONSIVE (mobile + tablet) SYSTEMIC FIXES
+   Address 143 audit findings across 10 pages from 5 parallel agents.
+   Breakpoints: ≤1024 = drawer mode (sidebar hidden, hamburger in topbar),
+                ≤768  = stacked layouts, table reflow,
+                ≤480  = compact mobile.
+   ============================================================================ */
+
+/* ----- Hamburger toggle (JS-injected into topbar by app.js initAppTopbar) -- */
+.cnx-hamburger {
+    display: none;            /* hidden ≥ 1025 */
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--cnx-radius-sm, 6px);
+    cursor: pointer;
+    color: var(--cnx-text-primary);
+    transition: background 120ms ease;
+    flex-shrink: 0;
+}
+.cnx-hamburger:hover {
+    background: var(--cnx-bg-subtle);
+    border-color: var(--cnx-border);
+}
+.cnx-hamburger:active { transform: scale(0.96); }
+.cnx-hamburger__lines,
+.cnx-hamburger__lines::before,
+.cnx-hamburger__lines::after {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    position: relative;
+}
+.cnx-hamburger__lines::before { position: absolute; top: -6px; }
+.cnx-hamburger__lines::after  { position: absolute; top:  6px; }
+
+@media (max-width: 1024px) {
+    .cnx-hamburger { display: inline-flex; }
+}
+
+/* ----- Sidebar scrim backdrop (JS-injected) -------------------------------- */
+.cnx-sidebar-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 14, 16, 0.55);
+    z-index: 1050;            /* below sidebar (1100), above everything else */
+    /* Round 4.1: removed backdrop-filter — on iOS Safari + Brave it leaked
+       the blur across the sidebar itself, making nav text unreadable. */
+    animation: cnxScrimIn 180ms ease;
+}
+.cnx-sidebar-scrim.open { display: block; }
+@keyframes cnxScrimIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Defensive: ensure no parent filter/transform affects the open drawer. */
+.sidebar[data-cnx-sidebar="true"].open {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    /* Round 4.2: force the drawer into a top-level isolation/stacking
+       context so its z-index is compared against body-level siblings
+       (the scrim) and not trapped inside .main-layout's local context.
+       This fixes iOS Safari/Brave where the company-filter pill or other
+       page floats with z-index >= 100 leaked above the open drawer. */
+    isolation: isolate;
+}
+
+/* Round 4.2 — when the drawer is OPEN on mobile, the page content
+   underneath must be both visually behind AND non-interactive so taps
+   on the sidebar nav links are not intercepted by floating elements
+   (company-filter pill, modal backdrops, page-internal popovers).
+   Targets the document body via a class flipped by app.js. */
+body.cnx-drawer-open .main-content,
+body.cnx-drawer-open .cnx-app-topbar,
+body.cnx-drawer-open .header,
+body.cnx-drawer-open header.header {
+    pointer-events: none;
+}
+/* Re-enable pointer events on the sidebar itself + the scrim (closes drawer) */
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"],
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"] *,
+body.cnx-drawer-open .cnx-sidebar-scrim {
+    pointer-events: auto;
+}
+/* Also ensure ALL page-internal floats (popovers, dropdowns, modals)
+   stay below the drawer when it's open. */
+body.cnx-drawer-open *:not(.sidebar):not(.sidebar *):not(.cnx-sidebar-scrim) {
+    z-index: auto !important;
+}
+/* But DO NOT apply z-index reset to the sidebar/scrim themselves */
+body.cnx-drawer-open .sidebar[data-cnx-sidebar="true"] {
+    z-index: 1100 !important;
+}
+body.cnx-drawer-open .cnx-sidebar-scrim {
+    z-index: 1050 !important;
+}
+
+/* ============================================================================
+   PAGE HEADER — wrap the per-page header at ≤1024 so toolbars don't truncate
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .main-content > .header,
+    .main-content > header.header {
+        padding: 12px 16px;
+        gap: 10px;
+    }
+    .main-content > .header > .flex,
+    .main-content > header.header > .flex {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .main-content > .header > .header-left,
+    .main-content > header.header > .header-left {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+    .main-content > .header > .header-right,
+    .main-content > header.header > .header-right {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+    .main-content > .header h1,
+    .main-content > header.header h1 {
+        font-size: 22px;
+        line-height: 1.2;
+    }
+}
+
+/* ============================================================================
+   TABLES — horizontal-scroll wrapper at ≤768 (no markup change required)
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .table-container,
+    .filters-container,
+    .users-list-container,
+    .companies-list-container,
+    .ticket-list-container,
+    .audit-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-container > table,
+    .data-table,
+    .users-table,
+    .companies-table,
+    .audit-table,
+    .ticket-table {
+        min-width: 720px;     /* allow horizontal scroll instead of breaking layout */
+    }
+    .table-container::after {
+        content: "← scorri →";
+        display: block;
+        text-align: center;
+        font-size: 11px;
+        color: var(--cnx-text-muted);
+        padding: 6px;
+        opacity: 0.6;
+    }
+}
+
+/* ----- Table action buttons → 44×44 touch targets at ≤1024 ----------------- */
+@media (max-width: 1024px) {
+    .actions button,
+    .action-buttons button,
+    .table-actions button,
+    .btn-icon,
+    .btn-icon-sm {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px;
+    }
+}
+
+/* ============================================================================
+   STAT CARDS GRID — proper reflow ladder
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .stats-grid,
+    .ticket-stats-grid,
+    .audit-stats-grid,
+    .dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px;
+    }
+}
+@media (max-width: 600px) {
+    .stats-grid,
+    .ticket-stats-grid,
+    .audit-stats-grid,
+    .dashboard-stats {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ============================================================================
+   FILTER ROWS — wrap at ≤1024, stack at ≤640
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .filters-row,
+    .filter-row,
+    .ticket-filters,
+    .audit-filters,
+    .files-filters {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .filters-row > *,
+    .filter-row > *,
+    .ticket-filters > *,
+    .audit-filters > * {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+    }
+    /* Search inputs always full row */
+    .filters-row .search-input,
+    .filter-row .search-input,
+    input[type="search"]:not(.cnx-input--search) {
+        flex: 1 1 100%;
+    }
+}
+@media (max-width: 640px) {
+    .filters-row > *,
+    .filter-row > *,
+    .ticket-filters > *,
+    .audit-filters > * {
+        flex: 1 1 100%;
+    }
+}
+
+/* Filter pills row (tasks Tutti/I Miei Task/...) */
+@media (max-width: 768px) {
+    .filter-tabs,
+    .task-filters {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .filter-tabs .filter-tab,
+    .task-filter-tab,
+    .filter-pill {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+}
+
+/* ============================================================================
+   CTA BUTTONS — stack vertically on mobile
+   ============================================================================ */
+@media (max-width: 768px) {
+    .header .btn,
+    .page-header .btn,
+    .toolbar .btn {
+        min-height: 44px;
+    }
+    /* Search bar + button row stacking */
+    .search-bar {
+        width: 100% !important;
+    }
+    .search-and-actions,
+    .header-actions {
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+    .search-and-actions > *,
+    .header-actions > * {
+        width: 100%;
+    }
+}
+
+/* Topbar global search — full width on mobile, no hero-card grid */
+@media (max-width: 768px) {
+    .cnx-app-topbar__search { flex: 1 1 100%; }
+    .cnx-app-topbar__spacer { flex: 0 0 auto; }
+    .cnx-search-results { max-height: 70vh; }
+}
+
+/* ============================================================================
+   HERO CARD — stack vertically + hide art on mobile
+   ============================================================================ */
+@media (max-width: 900px) {
+    .cnx-hero-card {
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+    }
+}
+@media (max-width: 600px) {
+    .cnx-hero-card__art {
+        display: none;
+    }
+    .cnx-hero-card__date {
+        font-size: 56px;
+    }
+    .cnx-hero-card__weekday {
+        font-size: 18px;
+    }
+    .cnx-hero-card__greeting {
+        font-size: 22px;
+    }
+}
+
+/* ============================================================================
+   FILES PAGE — mobile-specific
+   ============================================================================ */
+@media (max-width: 768px) {
+    /* 5 toolbar buttons → icon-only at ≤768 (label hidden) */
+    .files-actions .btn span,
+    .header .btn span:not(.btn-icon-only) {
+        display: none;
+    }
+    .files-actions .btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+    }
+    /* Drop-zone tighter padding on mobile */
+    .cnx-dropzone {
+        padding: 24px 16px;
+        font-size: 14px;
+    }
+    /* Modal full-screen on mobile */
+    .cnx-modal,
+    .modal-content {
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        margin: 0;
+    }
+}
+
+/* ============================================================================
+   CALENDAR / TURNI — month grid responsive
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .calendar-grid,
+    .shifts-month-grid,
+    .fc-daygrid {
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    }
+    .calendar-event,
+    .fc-event {
+        white-space: normal;
+        word-break: break-word;
+        font-size: 11px;
+    }
+}
+@media (max-width: 640px) {
+    /* Calendar at <640: horizontal-scroll wrapper instead of unusable cells */
+    .calendar-month-wrapper,
+    .shifts-month-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .calendar-grid,
+    .shifts-month-grid {
+        min-width: 700px;
+    }
+    /* Calendar toolbar: stack to vertical */
+    #calendar-toolbar,
+    .calendar-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+    #calendar-toolbar > *,
+    .calendar-controls > * {
+        width: 100%;
+    }
+}
+
+/* Tasks kanban: stack columns vertically <=768, clamp debug-text */
+@media (max-width: 768px) {
+    .kanban-board,
+    .tasks-kanban {
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
+    .task-card .description,
+    .kanban-card .description,
+    .task-card .task-description {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+}
+
+/* ============================================================================
+   AUDIT_LOG — filter form responsive
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .filters-container .filters-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .filters-container .filters-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .filters-container .filters-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        min-height: 44px;
+    }
+}
+@media (max-width: 640px) {
+    .filters-container .filters-grid {
+        grid-template-columns: 1fr !important;
+    }
+    /* "Elimina Log" button: full-width red CTA on mobile */
+    .audit-header .btn-danger {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
+/* ============================================================================
+   CONFIGURAZIONI — tab strip overflow
+   ============================================================================ */
+@media (max-width: 1024px) {
+    .config-tabs,
+    .tabs-list {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: thin;
+    }
+    .config-tabs .tab-btn,
+    .tabs-list .tab-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    .form-row {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ============================================================================
+   COMPANY FILTER DROPDOWN — full-width on mobile
+   ============================================================================ */
+@media (max-width: 768px) {
+    .company-filter,
+    .company-filter-dropdown {
+        width: 100%;
+    }
+}
+
+/* ============================================================================
+   GLOBAL — no horizontal page overflow ever
+   ============================================================================ */
+@media (max-width: 1024px) {
+    body, html { overflow-x: hidden; }
+    .main-content { overflow-x: hidden; }
+}
