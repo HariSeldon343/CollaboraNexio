@@ -4,6 +4,76 @@
 
 ---
 
+## 2026-05-03 (round 3) — UI Redesign Round 3: dark-mode systemic pass (186 findings)
+
+**Status:** FIXED (merged on main, commit `025b0d8`)
+
+**Trigger:** utente segnala "La versione scura non è ben realizzata" con screenshot di dashboard + files.php in dark che mostrano white slabs, cobalt CTAs, glass topbar tinted teal, palette inconsistente.
+
+**Approccio:** 5 agenti `Explore` read-only paralleli (1 per coppia di pagine), 10 reports `tools/ui_audits/*.md` con 186 findings strutturati (severity/selector/file:line/root cause/fix). Lead applica patches CSS centralmente.
+
+### Bug categorie risolte
+
+#### Cat A — Hardcoded white bg in dark
+- `audit_log.php:168` `.filters-container { background: white }` — override su selector sbagliato `.filters-card`. Card pure bianca in dark.
+- `audit_log.php:236` `.table-container { background: white }` — stessa categoria.
+- `tasks.php` `.alert-warning/.orphan-tasks-warning` con `#FEF3C7` cream-on-cream illeggibile.
+- `filemanager.css` drop-zone overlay `rgba(255,255,255,0.97)` flash bianco al drag.
+- `workflow.css:548` `.btn-secondary { background: #6b7280; color: white }` leak globale.
+- `files.php:918` `#createRootFolderBtn { background: linear-gradient(135deg, #667eea, #764ba2) }` violetto off-brand.
+
+**Fix:** override centralizzato in `components.css` round 3 block con `[data-theme="dark"]` selectors + `!important` per battere inline `<style>` in pagine.
+
+#### Cat B — Legacy `--color-primary` cobalt invade dark
+- `.btn-primary`, `.tab-btn.active`, `:checked + .toggle-slider`, "+Nuovo Ticket/Task", calendar today indicator, "Tutti" filter pill, event highlights — tutti riferiscono `var(--color-primary)` = `#2563EB` che non era overridden in dark.
+
+**Fix high-leverage:** override `--color-primary`/-dark/-light in `[data-theme="dark"]` → `--cnx-accent` (#5FCAD3 mint). Single change, dozzine di siti flippati.
+
+#### Cat C — Token mancanti
+- 9 token referenziati da alert-box/badge ma mai definiti in `:root`: `--color-warning-50/100/200/700`, `--color-primary-50/100/200/700`, `--color-success-100`, `--color-error-100`.
+- Conseguenza: alert-box invisibili in BOTH themes (pre-existing bug silente).
+
+**Fix:** backfill in `:root` per light + override in `[data-theme="dark"]` con valori semi-trasparenti su accent/warning/danger.
+
+#### Cat D — Topbar glassmorphism viola direction.md
+- `components.css:29-33` `.cnx-app-topbar` con `background: var(--cnx-accent-soft) + backdrop-filter: blur(8px)`.
+
+**Fix:** flat `--cnx-bg-surface` in light, `--cnx-bg-app` in dark (fuse con page bg). No blur.
+
+#### Cat E — Border invisibili
+- `--cnx-border` (#22363B) ≈ `--cnx-bg-subtle` (#1B2F33) in dark, delta ~3pt luminance < WCAG 3:1.
+- Calendar grid lines, turni grid, filter input border, table dividers tutti scomparsi.
+
+**Fix:** rinforzato `--cnx-border` → #2E464C, `--cnx-border-strong` → #455F66 in dark.
+
+#### Cat F — Role badges pastel rainbow (utenti.php)
+- Hex literals `#FEF3C7/#DBEAFE/#E0E7FF/#F3E8FF` per UTENTE/MANAGER/ADMIN — viola single-mint policy.
+
+**Fix parziale:** introdotto token system `[data-theme="dark"] .role-badge.role-{utente,manager,admin}` con accent/neutral/success palette. **Note:** selector reali nel markup utenti.php potrebbero non matchare — verifica round 4.
+
+#### Cat G — Action button emoji full-color
+- 📝 👥 🗑️ 🔑 in azioni tabella aziende/utenti — non si ricolorano via `color`.
+
+**Fix CSS-only parziale:** `filter: grayscale(0.65) brightness(1.05)` su action-row buttons in dark. **Full fix:** SVG mask migration in markup (deferred).
+
+### Anti-regressione
+- Pattern: ogni nuova `--color-*` aggiunta a `:root` deve avere override esplicito in `[data-theme="dark"]` o sarà silently invisible su pagine in dark mode.
+- Pattern: `[data-theme="dark"] X { background: var(--cnx-bg-surface) !important }` battle inline `<style>` in pagine senza modificare PHP.
+- Pattern: per UI/visual audits a tappeto, spawnare 5+ agenti read-only paralleli (1 per coppia pagine) + lead-applies-fix centralmente.
+
+**File modificati:**
+- `assets/css/styles.css` (+57 righe `:root` backfill + `[data-theme="dark"]` extension)
+- `assets/css/components.css` (+524 righe round 3 systemic block)
+- 10 audit reports in `tools/ui_audits/`
+- 20 screenshots (10 pre + 10 post) in `tools/ui_redesign/dark_round3{,_post}/`
+
+**Known partial states:**
+- audit_log `.table-container` header strip ancora chiaro (inner `.table-header` div bypassa override) — round 4.
+- utenti role badge selectors potrebbero non matchare i class names reali in markup — round 4 verifica grep-first.
+- Action-row emoji icons solo grayscale-mitigated — round 4 SVG migration.
+
+---
+
 ## 2026-05-03 (late) — UI Redesign Round 2: theme toggle bug + responsive header + Cloudflare cache
 
 **Status:** FIXED (merged on main: commits `0f9c529` + `e9785e0`)

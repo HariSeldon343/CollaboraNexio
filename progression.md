@@ -4,6 +4,77 @@
 
 ---
 
+## 2026-05-03 (round 3) — UI REDESIGN ROUND 3: dark-mode systemic pass (186 findings, 5 audit agents)
+
+**Status:** MERGED su `main` — commit `025b0d8`.
+
+**Trigger:** dopo round 2 mergiato, utente segnala "La versione scura non è ben realizzata. Devi analizzare per ogni pagina ogni singolo elemento della pagina. Per questo è utile spawnare un team di agenti. Magari uno per pagina." — utente ha esplicitamente richiesto pattern multi-agent.
+
+**Approccio (lessons-aware):**
+- 5 agenti `Explore`/`general-purpose` **read-only** in parallelo, ognuno owns 2 pagine.
+- Lead applica fix CSS centralmente (no race su shared CSS files — questa è la differenza chiave vs perf-batch v3 che aveva worktree race).
+- Pre-screenshot dark di tutte 10 pagine via Playwright (ground truth).
+- Ogni agent produce `tools/ui_audits/<page>.md` con findings strutturati (severity, selector con file:line, screenshot region, root cause, recommended CSS fix).
+
+**Risultati audit (10 reports, 186 findings totali):**
+- dashboard 18, files 22, calendar 24, tasks 23, ticket 14, turni 16, aziende 18, utenti 17, audit_log 18, configurazioni 16
+- Per severity: ~46 critical, ~80 major, ~60 minor
+
+**Pattern sistemici emersi (alta leva):**
+
+1. **`--color-primary` cobalt invade tutto in dark** — tab attivo, toggle :checked, "Tutti" pill, "+ Nuovo Ticket/Task" CTA, calendar today indicator, event chips. **Single fix:** override `--color-primary`/-dark/-light in `[data-theme="dark"]` → `--cnx-accent` mint. Cascading flip su dozzine di selectors.
+2. **Hardcoded white bg** che bypassano `[data-theme="dark"]`:
+   - `audit_log.php` `.filters-container` + `.table-container`: `background: white` con override su selector sbagliato `.filters-card` → cards bianche pure in dark.
+   - `tasks.php` alert banner `#FEF3C7` cream-on-cream illeggibile.
+   - `filemanager.css` drop-zone `rgba(255,255,255,0.97)`.
+   - `workflow.css:548` `.btn-secondary` `#6b7280 + white` leak globale.
+   - `files.php` `#createRootFolderBtn` (Cartella Tenant) `linear-gradient(#667eea, #764ba2)` violetto off-brand.
+3. **Token mancanti** referenziati da alert-box ma mai definiti in `:root`: `--color-warning-50/100/200/700`, `--color-primary-50/100/200/700`, `--color-success-100`, `--color-error-100`. Backfill in entrambi i temi.
+4. **Topbar tinted teal + glassmorphism** (`background: var(--cnx-accent-soft)` + `backdrop-filter: blur(8px)`) viola direction.md "no glassmorphism".
+5. **`--cnx-border` (#22363B) ≈ `--cnx-bg-subtle` (#1B2F33)** in dark → calendar/turni grid e filter input border invisibili.
+6. **Role badges pastel rainbow** (`#FEF3C7/#DBEAFE/#E0E7FF/#F3E8FF` hex literals) in utenti.php — viola single-mint policy.
+7. **Action button emoji** in tabelle (pencil 📝, users 👥, trash 🗑️, key 🔑) — non si ricolorano via `color`. Mitigation parziale: `filter: grayscale(0.65)`. Full fix richiede SVG mask migration.
+
+**Patches applicati (commit `025b0d8`, +581 righe CSS, no markup change):**
+
+* `assets/css/styles.css` (+57 righe): blocco `[data-theme="dark"]` esteso con override `--color-primary*`, semantic colors → CNX status, 9 token mancanti, sidebar legacy bg flat, borders rinforzati. Backfill `:root` per token mancanti anche in light.
+* `assets/css/components.css` (+524 righe): topbar de-tinted/de-glass, blocco round 3 sistemico in fondo con override per:
+  - `.btn-danger` globale (mancava).
+  - `.filters-container`/`.table-container` (audit_log).
+  - `.alert/.multi-tenant-warning/.orphan-tasks-warning` (tasks).
+  - `#createRootFolderBtn` (files purple → mint).
+  - `.btn-secondary` global override.
+  - File-manager grid/list rows.
+  - Hero card SVG art strokes mint-tinted.
+  - Calendar/turni toolbar buttons + grid lines + today indicator.
+  - Ticket stat cards + status/priority badges (pill fill).
+  - Aziende/utenti table headers + modal + role badges con token system.
+  - Configurazioni tab strip + toggle :checked → mint.
+  - Filter inputs + search + select sito-wide border `--cnx-border-strong`.
+  - Stat cards unificate.
+  - Action-row emoji `filter: grayscale(0.65)`.
+
+**Verifica QA:**
+- 10 pre-screenshot in `tools/ui_redesign/dark_round3/*.png`.
+- 10 post-screenshot in `tools/ui_redesign/dark_round3_post/*.png`.
+- Improvements visibili: topbar fuso con bg, hero card stroke mint, audit_log Filtri card dark (era bianca pura), tasks alert amber leggibili, files Cartella Tenant mint (era violetto), turni today indicator mint (era cobalt), configurazioni tab + toggle mint.
+
+**Known partial states (round 4 candidati):**
+- audit_log `.table-container` header strip ancora chiaro a fondo pagina — l'inner `.table-header` div ha bg proprio che bypassa override `.table-container`. Selector tweak deferred.
+- utenti role badges ancora pastel — i class names reali in markup non matchano i pattern `.role-badge.role-utente` introdotti. Richiede grep+verify pass.
+- Action-row emoji icons solo grayscale-mitigated; full fix → SVG mask migration in markup.
+
+**Lessons learned (importanti):**
+1. **5 agent paralleli read-only + lead-applies-fix è il pattern corretto per UI/visual audits**. Niente race su shared CSS, ogni agent indipendente, lead consolida. ~30 min total vs ~2h sequential.
+2. **`--color-primary` override in `[data-theme="dark"]` è la single most powerful fix possibile** per UI legacy multi-themed. Una riga cambia decine di selectors senza tocccarli. Pattern da replicare per future rebrand.
+3. **Audit reports markdown strutturati** (severity/selector con file:line/screenshot region/root cause/recommended fix) = ottimo input per fix centralizzato. Format usato qui è da promuovere a template per visual QA team.
+4. **Pre/post screenshot dir convention** (`dark_round3/` + `dark_round3_post/`) abilita visual diff manuale + regression check.
+5. **Selector match ≠ class actually present in markup**: 2 fix non hanno funzionato perché selector immaginati non esistono nel DOM (utenti role badges, audit_log table-header). Mitigation: prossima iterazione fa grep su class names PRIMA di scrivere selector.
+
+**Backup tags preservati:** `ui-baseline-2026-05-03`, `ui-redesign-2026-05-r1-shipped`, + tarball backup.
+
+---
+
 ## 2026-05-03 (late) — UI REDESIGN ROUND 2: topbar globale, hero card, upload modal, responsive fix, Cloudflare cache-bust
 
 **Status:** MERGED su `main` (PR #13 + commits diretti post-merge).
