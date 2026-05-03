@@ -75,6 +75,122 @@
                 input?.select();
             }
         });
+
+        // Round 3 — wire the global search input to /api/search/global.php
+        // with a debounced fetch + categorized dropdown of results.
+        this.initGlobalSearch(topbar, input);
+    }
+
+    initGlobalSearch(topbar, input) {
+        if (!input) return;
+
+        // Build the dropdown panel anchored under the search field.
+        const panel = document.createElement('div');
+        panel.className = 'cnx-search-results';
+        panel.setAttribute('role', 'listbox');
+        panel.setAttribute('aria-live', 'polite');
+        panel.hidden = true;
+        topbar.querySelector('.cnx-app-topbar__search')?.appendChild(panel);
+
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const apiUrl = (window.BASE_URL || '/CollaboraNexio') + '/api/search/global.php';
+
+        let inflight = null;
+        let lastQuery = '';
+        let timer = null;
+
+        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+            { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+        ));
+
+        const renderResults = (data, query) => {
+            const r = data?.results || {};
+            const sections = [
+                { key: 'files',   title: 'File e cartelle' },
+                { key: 'users',   title: 'Utenti' },
+                { key: 'tickets', title: 'Ticket' },
+                { key: 'tasks',   title: 'Task' },
+            ];
+            const total = (data?.total) || 0;
+
+            if (total === 0) {
+                panel.innerHTML = `<div class="cnx-search-empty">Nessun risultato per "<strong>${escapeHtml(query)}</strong>"</div>`;
+                return;
+            }
+
+            const parts = [];
+            for (const s of sections) {
+                const items = r[s.key] || [];
+                if (!items.length) continue;
+                parts.push(`<div class="cnx-search-section"><div class="cnx-search-section__title">${s.title}</div>`);
+                for (const it of items) {
+                    parts.push(
+                        `<a class="cnx-search-result" href="${escapeHtml(it.url)}" data-icon="${escapeHtml(it.icon || '')}">
+                            <span class="cnx-search-result__icon" aria-hidden="true"></span>
+                            <span class="cnx-search-result__body">
+                                <span class="cnx-search-result__label">${escapeHtml(it.label)}</span>
+                                <span class="cnx-search-result__sublabel">${escapeHtml(it.sublabel || '')}</span>
+                            </span>
+                        </a>`
+                    );
+                }
+                parts.push('</div>');
+            }
+            panel.innerHTML = parts.join('');
+        };
+
+        const performSearch = async (q) => {
+            try {
+                if (inflight) inflight.abort();
+                inflight = new AbortController();
+                const url = apiUrl + '?q=' + encodeURIComponent(q);
+                const res = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-Token': csrf, 'Accept': 'application/json' },
+                    signal: inflight.signal,
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const json = await res.json();
+                if (!json.success) throw new Error(json.message || 'Search failed');
+                renderResults(json.data, q);
+                panel.hidden = false;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                panel.innerHTML = `<div class="cnx-search-empty">Errore ricerca: ${escapeHtml(err.message)}</div>`;
+                panel.hidden = false;
+            }
+        };
+
+        input.addEventListener('input', () => {
+            const q = input.value.trim();
+            if (timer) clearTimeout(timer);
+            if (q.length < 2) {
+                panel.hidden = true;
+                panel.innerHTML = '';
+                lastQuery = '';
+                return;
+            }
+            if (q === lastQuery) return;
+            lastQuery = q;
+            timer = setTimeout(() => performSearch(q), 220);
+        });
+
+        input.addEventListener('focus', () => {
+            if (lastQuery && panel.innerHTML) panel.hidden = false;
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { panel.hidden = true; input.blur(); }
+            if (e.key === 'Enter') {
+                const first = panel.querySelector('.cnx-search-result');
+                if (first) { e.preventDefault(); window.location.href = first.getAttribute('href'); }
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!topbar.contains(e.target)) panel.hidden = true;
+        });
     }
 
     initThemeToggle() {

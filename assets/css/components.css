@@ -1195,6 +1195,111 @@
 }
 
 /* ============================================================
+   GLOBAL SEARCH DROPDOWN — wired to /api/search/global.php
+   Shows categorized results (File, Utenti, Ticket, Task) under
+   the topbar search field. Round 3 — search becomes functional.
+   ============================================================ */
+.cnx-app-topbar__search {
+    position: relative; /* anchor for the dropdown */
+}
+
+.cnx-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 260; /* above topbar (250) */
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-md, 10px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.cnx-search-empty {
+    padding: 16px 20px;
+    color: var(--cnx-text-muted);
+    font-size: 14px;
+}
+
+.cnx-search-section {
+    padding: 4px 0;
+}
+.cnx-search-section + .cnx-search-section {
+    border-top: 1px solid var(--cnx-border);
+}
+.cnx-search-section__title {
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--cnx-text-muted);
+}
+
+.cnx-search-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    text-decoration: none;
+    color: var(--cnx-text-primary);
+    transition: background 120ms ease;
+}
+.cnx-search-result:hover,
+.cnx-search-result:focus-visible {
+    background: var(--cnx-bg-subtle);
+    outline: none;
+}
+
+.cnx-search-result__icon {
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--cnx-accent-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cnx-search-result[data-icon="folder"] .cnx-search-result__icon::before { content: "📁"; font-size: 14px; }
+.cnx-search-result[data-icon="file"]   .cnx-search-result__icon::before { content: "📄"; font-size: 14px; }
+.cnx-search-result[data-icon="user"]   .cnx-search-result__icon::before { content: "👤"; font-size: 14px; }
+.cnx-search-result[data-icon="ticket"] .cnx-search-result__icon::before { content: "🎫"; font-size: 14px; }
+.cnx-search-result[data-icon="task"]   .cnx-search-result__icon::before { content: "✓";  font-size: 14px; color: var(--cnx-accent); }
+
+.cnx-search-result__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+.cnx-search-result__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cnx-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cnx-search-result__sublabel {
+    font-size: 12px;
+    color: var(--cnx-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .cnx-search-results {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    border-color: var(--cnx-border-strong);
+}
+
+/* ============================================================
    Body link reset for cnx- areas (no underline by default)
    ============================================================ */
 .cnx-link {
