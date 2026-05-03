@@ -53,6 +53,11 @@
         const topbar = document.createElement('div');
         topbar.className = 'cnx-app-topbar';
         topbar.innerHTML = `
+            <button type="button" class="cnx-hamburger" id="cnxSidebarToggle"
+                    aria-label="Apri menu" aria-controls="sidebar"
+                    aria-expanded="false">
+                <span class="cnx-hamburger__lines" aria-hidden="true"></span>
+            </button>
             <div class="cnx-app-topbar__search cnx-input-group">
                 <span class="cnx-input-group__icon" aria-hidden="true"></span>
                 <input type="search"
@@ -65,6 +70,10 @@
             <div class="cnx-app-topbar__spacer"></div>
         `;
         main.insertBefore(topbar, main.firstChild);
+
+        // Round 4 — wire the hamburger to open the sidebar drawer (≤1024).
+        // Uses the existing `.sidebar.open` class that styles.css media-query reads.
+        this.initSidebarDrawer();
 
         // Wire Ctrl/Cmd+K to focus the global search input.
         const input = topbar.querySelector('#cnxGlobalSearch');
@@ -79,6 +88,62 @@
         // Round 3 — wire the global search input to /api/search/global.php
         // with a debounced fetch + categorized dropdown of results.
         this.initGlobalSearch(topbar, input);
+    }
+
+    initSidebarDrawer() {
+        // Round 4 — sidebar drawer for tablet/mobile (≤1024px). The CSS in
+        // styles.css already defines `.sidebar.open` showing the drawer; this
+        // wires the hamburger toggle + scrim backdrop + Escape-to-close.
+        const sidebar = document.querySelector('.sidebar[data-cnx-sidebar="true"]');
+        const toggle  = document.getElementById('cnxSidebarToggle');
+        if (!sidebar || !toggle) return;
+
+        // Inject the scrim backdrop once (idempotent).
+        let scrim = document.querySelector('.cnx-sidebar-scrim');
+        if (!scrim) {
+            scrim = document.createElement('div');
+            scrim.className = 'cnx-sidebar-scrim';
+            scrim.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(scrim);
+        }
+
+        const open = () => {
+            sidebar.classList.add('open');
+            scrim.classList.add('open');
+            toggle.setAttribute('aria-expanded', 'true');
+            toggle.setAttribute('aria-label', 'Chiudi menu');
+            // Prevent body scroll while drawer open
+            document.body.style.overflow = 'hidden';
+        };
+        const close = () => {
+            sidebar.classList.remove('open');
+            scrim.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', 'Apri menu');
+            document.body.style.overflow = '';
+        };
+
+        toggle.addEventListener('click', () => {
+            if (sidebar.classList.contains('open')) close();
+            else open();
+        });
+        scrim.addEventListener('click', close);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('open')) close();
+        });
+        // If user clicks a sidebar nav link, close the drawer (mobile UX).
+        sidebar.addEventListener('click', (e) => {
+            const link = e.target.closest('a.nav-item, .nav-item');
+            if (link && window.matchMedia('(max-width: 1024px)').matches) {
+                close();
+            }
+        });
+        // If viewport grows past 1024 (rotation), make sure drawer state is reset.
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1024 && sidebar.classList.contains('open')) {
+                close();
+            }
+        });
     }
 
     initGlobalSearch(topbar, input) {

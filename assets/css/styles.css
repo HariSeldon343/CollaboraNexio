@@ -1547,20 +1547,29 @@ select.form-control {
 
 /* ========================================
    11. RESPONSIVE UTILITIES
+   Round 4 — breakpoint moved 768→1024 to close the "dead zone"
+   between 769 and 1024 where sidebar hidden but main-content kept
+   margin-left: 260px → content overflowed right edge.
    ======================================== */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
+        /* Drawer state: above EVERYTHING when open (above topbar z=250) */
+        z-index: 1100;
+        will-change: transform;
+        transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 320px;
+        width: min(85vw, 320px);
     }
 
     .sidebar.open {
         transform: translateX(0);
+        box-shadow: 12px 0 32px rgba(0, 0, 0, 0.4);
     }
 
     .main-content {
-        margin-left: 0;
+        margin-left: 0 !important;
         min-height: 100vh;
-        /* Allow natural height extension on mobile too */
     }
 
     .container {
@@ -1569,7 +1578,16 @@ select.form-control {
 
     .page-content {
         padding: var(--space-6) var(--space-4);
-        /* Remove fixed height on mobile too */
+    }
+}
+
+/* Smaller padding on actual mobile */
+@media (max-width: 480px) {
+    .page-content {
+        padding: var(--space-4) var(--space-3);
+    }
+    .container {
+        padding: 0 var(--space-3);
     }
 }
 
