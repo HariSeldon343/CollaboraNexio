@@ -212,7 +212,7 @@ $csrfToken = $auth->generateCSRFToken();
 </head>
 <?php require __DIR__ . '/includes/layout_start.php'; ?>
             <?php
-                // CNX UI redesign 2026-05 — personalized greeting + Italian date in page header.
+                // CNX UI redesign 2026-05 round 2 — hero card greeting (reference: Monday 25th).
                 $cnxGreetingFirstName = trim(strtok((string)($currentUser['name'] ?? 'Utente'), ' '));
                 if ($cnxGreetingFirstName === '') { $cnxGreetingFirstName = 'Utente'; }
                 $cnxItalianMonths = [
@@ -224,17 +224,13 @@ $csrfToken = $auth->generateCSRFToken();
                     'giovedì', 'venerdì', 'sabato'
                 ];
                 $cnxNow = new DateTimeImmutable('now');
-                $cnxToday = ucfirst($cnxItalianWeekdays[(int)$cnxNow->format('w')])
-                          . ', ' . (int)$cnxNow->format('j')
-                          . ' ' . $cnxItalianMonths[(int)$cnxNow->format('n')]
-                          . ' ' . $cnxNow->format('Y');
+                $cnxWeekdayCap = ucfirst($cnxItalianWeekdays[(int)$cnxNow->format('w')]);
+                $cnxDayNum = (int)$cnxNow->format('j');
+                $cnxMonthName = $cnxItalianMonths[(int)$cnxNow->format('n')];
+                $cnxYearNum = $cnxNow->format('Y');
             ?>
-            <header class="header cnx-page-header cnx-page-header--no-border" style="padding: 24px 32px;">
-                <div class="cnx-page-header__main">
-                    <h1 class="cnx-display">Ciao, <?php echo htmlspecialchars($cnxGreetingFirstName); ?>!</h1>
-                    <p class="cnx-page-header__subtitle"><?php echo htmlspecialchars($cnxToday); ?></p>
-                </div>
-                <div class="cnx-page-header__actions">
+            <header class="header cnx-page-header cnx-page-header--no-border" style="padding: 16px 32px 0;">
+                <div class="cnx-page-header__actions" style="margin-left: auto;">
                     <?php if ($companyFilter->canUseCompanyFilter()): ?>
                         <?php echo $companyFilter->renderDropdown(); ?>
                     <?php endif; ?>
@@ -264,6 +260,31 @@ $csrfToken = $auth->generateCSRFToken();
                 ?>
                 <input type="hidden" id="currentTenantId" value="<?php echo htmlspecialchars((string)($activeTenantIdForDashboard ?? '')); ?>">
                 <input type="hidden" id="currentTenantIds" value="<?php echo htmlspecialchars(json_encode($selectedTenantIds, JSON_UNESCAPED_SLASHES)); ?>">
+
+                <!-- CNX UI redesign 2026-05 round 2: hero card greeting (reference: Monday 25th) -->
+                <section class="cnx-hero-card" aria-labelledby="cnxHeroGreeting">
+                    <div class="cnx-hero-card__body">
+                        <div class="cnx-hero-card__weekday"><?php echo htmlspecialchars($cnxWeekdayCap); ?></div>
+                        <div class="cnx-hero-card__date"><?php echo (int)$cnxDayNum; ?><span class="cnx-hero-card__suffix"><?php echo htmlspecialchars($cnxMonthName); ?></span></div>
+                        <h1 id="cnxHeroGreeting" class="cnx-hero-card__greeting">Ciao, <?php echo htmlspecialchars($cnxGreetingFirstName); ?>!</h1>
+                        <p class="cnx-hero-card__tagline">Buona giornata, fai succedere cose belle.</p>
+                    </div>
+                    <div class="cnx-hero-card__art" aria-hidden="true">
+                        <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="160" cy="40" r="14"/>
+                            <path d="M155 35l5 5 5-5"/>
+                            <rect x="20" y="80" width="60" height="56" rx="8"/>
+                            <path d="M20 96h60"/>
+                            <circle cx="32" cy="88" r="2"/>
+                            <circle cx="40" cy="88" r="2"/>
+                            <path d="M30 110h40m-40 12h28"/>
+                            <rect x="100" y="60" width="80" height="76" rx="10"/>
+                            <path d="M100 80h80"/>
+                            <path d="M115 100h50m-50 14h35m-35 12h20"/>
+                        </svg>
+                    </div>
+                </section>
+
                 <!-- Stats Grid - 4 Cards -->
                 <div class="dashboard-grid">
                     <div class="stat-card">

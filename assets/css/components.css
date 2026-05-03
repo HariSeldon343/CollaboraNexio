@@ -150,6 +150,96 @@
     border-color: var(--cnx-border) !important;
 }
 
+/* ============================================================
+   HERO CARD — dashboard greeting (reference: Monday 25th)
+   ============================================================ */
+.cnx-hero-card {
+    display: flex;
+    align-items: stretch;
+    gap: 24px;
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    padding: 32px 40px;
+    overflow: hidden;
+    position: relative;
+}
+
+.cnx-hero-card__body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cnx-hero-card__weekday {
+    font-size: 36px;
+    line-height: 44px;
+    font-weight: 600;
+    color: var(--cnx-text-primary);
+    letter-spacing: -0.01em;
+}
+
+.cnx-hero-card__date {
+    font-size: 56px;
+    line-height: 64px;
+    font-weight: 700;
+    color: var(--cnx-text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.cnx-hero-card__suffix {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--cnx-text-muted);
+    text-transform: lowercase;
+    letter-spacing: 0;
+}
+
+.cnx-hero-card__greeting {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-hero-card__tagline {
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--cnx-accent);
+    font-weight: 500;
+    margin: 0;
+}
+
+.cnx-hero-card__art {
+    flex: 0 0 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cnx-accent);
+    opacity: 0.7;
+}
+
+.cnx-hero-card__art svg {
+    width: 200px;
+    height: 160px;
+}
+
+@media (max-width: 760px) {
+    .cnx-hero-card { padding: 24px; }
+    .cnx-hero-card__art { display: none; }
+    .cnx-hero-card__date { font-size: 44px; line-height: 52px; }
+    .cnx-hero-card__weekday { font-size: 28px; line-height: 36px; }
+}
+
 /* ---------- Utility: section label ---------- */
 .cnx-section-label {
     font-size: var(--cnx-text-caption-size);
