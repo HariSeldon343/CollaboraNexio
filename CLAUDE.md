@@ -198,6 +198,19 @@ Quando introduci nuove colonne/feature:
 - Preferire pattern “unified endpoint” con `action` nel body
 - Fallback solo su 404, non su 401/403/500.
 
+### 3.10 Cache-busting su asset statici (Cloudflare Tunnel)
+La piattaforma in produzione è servita via **Cloudflare Tunnel** da XAMPP locale. Cloudflare cache-a CSS/JS per URL: se un file cambia contenuto ma URL resta identico, edge cache serve la versione stale fino a TTL.
+
+Regola obbligatoria in `includes/layout_head.php` e `includes/layout_end.php`:
+
+```php
+$cnxFooV = (string)((@filemtime(__DIR__.'/../assets/css/foo.css') ?: time()) . '-' . (@filesize(__DIR__.'/../assets/css/foo.css') ?: 0));
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($assetPrefix.'assets/css/foo.css?v='.$cnxFooV) ?>">
+```
+
+Si applica a **tutti** i `<link>` e `<script>` su asset versionato — incluso un file pre-esistente che ha solo cambiato contenuto. Su prima deploy con asset toccati: purge manuale Cloudflare consigliata per flush risposte già edge-cached.
+
 ---
 
 ## 4) Pattern di autenticazione
@@ -452,7 +465,7 @@ mysql -u root collaboranexio < database/migrations/<file>.sql
 
 ---
 
-**Ultimo aggiornamento**: 2025-12-19
+**Ultimo aggiornamento**: 2026-05-03 (UI redesign round 2 + Cloudflare cache-bust rule)
 per ogni nuova operazione, procedi sempre prima a leggere il file @CLAUDE.md. Poi inizia in sequenza a fare queste operazioni: 1) leggi @bug.md  per capire gli ultimi bug 
 risolti, e poi leggi @progression.md  per capire lo stato di sviluppo.2) pinifica le attività che svilupperai con l'ausio dei tui agenti. 3) esegui le attività pianificate anche        
 operando test e script e quant'altro serva in autonomia. 4)elimina tutti i file di test e/o simili creati e rendi la piattaforma pulita senza dati aggiuntivi utilizzati da te nel       

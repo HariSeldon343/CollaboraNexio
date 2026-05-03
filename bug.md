@@ -4,6 +4,55 @@
 
 ---
 
+## 2026-05-03 (late) — UI Redesign Round 2: theme toggle bug + responsive header + Cloudflare cache
+
+**Status:** FIXED (merged on main: commits `0f9c529` + `e9785e0`)
+
+### Bug A — Theme toggle non funzionava
+**Sintomi:** click sul pulsante sun/moon non flippava `data-theme` su `<html>`.
+**Root cause:** `includes/layout_end.php` caricava `assets/js/app.js` SENZA cache-bust. I browser tenevano la versione precedente (priva di `initThemeToggle()`).
+**Fix:** aggiunto `?v={mtime-filesize}` dinamico anche a `app.js` in `layout_end.php`.
+
+### Bug B — Header collassa a colonna verticale a viewport stretti
+**Sintomi:** su pagine come `files.php` a width < 1024px il titolo "File Manager" si rompeva in caratteri verticali "F i l e M a n a g e r" e i bottoni si sovrapponevano.
+**Root cause:** `.header > .header-left` aveva `flex: 1` ma il contenuto interno (titolo + breadcrumb + sottotitolo) non aveva `min-width: 0`, quindi i child rifiutavano di shrinkare. Inoltre `.header` aveva `height: 60px` fissa, non `flex-wrap`.
+**Fix:** in `components.css`:
+```css
+.main-content > .header { flex-wrap: wrap; min-height: auto; height: auto; }
+.main-content > .header > .header-left  { flex: 1 1 280px; min-width: 0; }
+.main-content > .header > .header-right { flex: 0 1 auto; margin-left: auto; }
+```
+
+### Bug C — Coachmark popover (turni.php) copriva il topbar
+**Sintomi:** il popover coachmark appariva con `z-index` superiore al topbar fisso e ne nascondeva la search bar.
+**Fix:** forzato `.coachmark, [id^="coachmark"], [id*="Coachmark"] { z-index: 240 !important; }` (sotto i 250 del topbar).
+
+### Bug D — Cloudflare edge cache serviva styles.css stale
+**Sintomi:** utente riportava su `https://app.nexiosolution.it/CollaboraNexio/dashboard.php` (servito via Cloudflare Tunnel da XAMPP locale) che il layout vecchio era ancora visibile dopo deploy. Files locali erano corretti (`git log` confermava commit aggiornato sul filesystem servito).
+**Root cause:** in `layout_head.php`, `components.css` aveva cache-bust `?v={mtime-filesize}` MA `styles.css` no. Cloudflare cachava la risposta CSS via URL e Edge non vedeva URL change.
+**Fix (commit `e9785e0`):**
+```php
+$cnxStylesCssV = (string)((@filemtime(__DIR__.'/../assets/css/styles.css') ?: time()).'-'.(@filesize(__DIR__.'/../assets/css/styles.css') ?: 0));
+?>
+<link rel="stylesheet" href="<?= htmlspecialchars($assetPrefix.'assets/css/styles.css?v='.$cnxStylesCssV) ?>">
+```
+**Action item utente:** purge manuale Cloudflare (Caching → Purge Everything su `nexiosolution.it`) per flushare le risposte già edge-cached. Dal prossimo deploy il cache-bust automatico farà il resto.
+
+### Anti-regressione
+- Pattern obbligatorio d'ora in poi: **ogni `<link>` o `<script>` su asset versionato deve avere `?v={mtime-filesize}` dinamico**, anche se è un file pre-esistente.
+- `position: sticky` su top-level container è soggetto a stacking context del parent → preferire `position: fixed` per app-shell elements (topbar, sidebar, modal backdrop).
+
+**File modificati:**
+- `includes/layout_end.php` (cache-bust app.js)
+- `includes/layout_head.php` (cache-bust styles.css)
+- `assets/css/components.css` (responsive header + coachmark z-index + topbar fixed + hero-card + dark-mode legacy overrides)
+- `assets/js/app.js` (initAppTopbar + initThemeToggle dock)
+- `dashboard.php` (cnx-hero-card)
+- `files.php` (+ Aggiungi btn + cnx-modal upload)
+- `assets/css/styles.css` (dark-mode legacy color overrides)
+
+---
+
 ## 2026-05-03 — UI Redesign 2026-05 Round 1 (PR #13 open)
 
 **Status:** IMPLEMENTED (review pending)

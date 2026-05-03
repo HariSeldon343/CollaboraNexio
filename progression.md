@@ -4,6 +4,73 @@
 
 ---
 
+## 2026-05-03 (late) — UI REDESIGN ROUND 2: topbar globale, hero card, upload modal, responsive fix, Cloudflare cache-bust
+
+**Status:** MERGED su `main` (PR #13 + commits diretti post-merge).
+
+**Trigger:** dopo il merge di PR #13 (round 1), feedback utente su tre fronti:
+1. "il tasto del tema non funziona" — provato il toggle non flippava il tema.
+2. "lo stile non mi sembra proprio simile a quello che ti ho indicato come reference" — utente ha allegato 6 screenshot del nuovo target visuale (sun/moon pill toggle in topbar, search bar centrata, hero card greeting, upload modal mint).
+3. "in alcune pagine il layout è non pienamente responsivo" — header che collassa in colonna verticale ("File Manag er") a viewport stretti + coachmark (turni.php) che copre il topbar.
+4. "questo è quello che vedo io" su `app.nexiosolution.it` — production via Cloudflare Tunnel mostra ancora layout vecchio.
+
+**Lavori applicati (commits su main):**
+
+1. **Theme toggle bug** — root cause: `layout_end.php` caricava `app.js` SENZA cache-bust (`<script src=".../app.js">` invece di `?v={mtime-filesize}`), quindi i browser tenevano la versione precedente con `initThemeToggle()` mancante. Fix: aggiunto cache-bust dinamico a `app.js` in `layout_end.php`.
+
+2. **Topbar globale via JS injection** (`assets/js/app.js`):
+   - Nuovo metodo `initAppTopbar()` chiamato da `init()`: inserisce `.cnx-app-topbar` come primo figlio di `#main-content` se la pagina ha `[data-cnx-sidebar="true"]` (idempotente).
+   - Topbar contiene: search input `.cnx-input--search` con icona, spacer, slot per theme toggle.
+   - `initThemeToggle()` rifatto: dock del button dentro `.cnx-app-topbar__spacer` (variante `.cnx-theme-toggle--in-topbar` two-pill sun/moon stile reference). Ctrl/Cmd+K focus search.
+
+3. **Hero card dashboard** (`dashboard.php`): nuovo blocco `.cnx-hero-card` dentro `.page-content` con weekday/giorno/mese italiano, greeting personalizzato, tagline e SVG art. Stile: card rounded-xl con sfondo bg-surface, niente gradient, accent mint nel numero del giorno.
+
+4. **Upload modal files.php**: aggiunto `+ Aggiungi` btn `.cnx-btn--primary` nell'header `files.php`, modale `.cnx-modal#cnxAddFileModal` con `.cnx-dropzone` mint dashed, IIFE che cabla `change`/`drop` a `window.fileManager.handleFileUpload()` (BUG-136 zero-byte + MIME validation preservati).
+
+5. **components.css round 2 additions** (~150 righe extra, totale ~700+):
+   - `.cnx-app-topbar` (`position: fixed; left: var(--sidebar-width); top: 0; z-index: 250`) + `.cnx-app-topbar__search`, `__spacer`.
+   - `.cnx-theme-toggle--in-topbar` two-pill sun/moon variant.
+   - `.cnx-hero-card`, `.cnx-hero-card__weekday/__date/__suffix/__greeting/__tagline/__art`.
+   - Override mint per legacy `.btn-primary` (con `!important` perché styles.css ha alta specificity).
+   - Override dark mode per legacy `.stat-card`, `.filters-card`, `.modal-content`, `.form-control`.
+   - **Responsive header normalization** (per fix collasso titolo):
+     ```css
+     .main-content > .header { flex-wrap: wrap; min-height: auto; }
+     .main-content > .header > .header-left  { flex: 1 1 280px; min-width: 0; }
+     .main-content > .header > .header-right { flex: 0 1 auto; margin-left: auto; }
+     .coachmark, [id^="coachmark"], [id*="Coachmark"] { z-index: 240 !important; }
+     ```
+   - `.main-content` ha `padding-top: 64px` per evitare overlap col topbar fisso.
+
+6. **styles.css** dark-mode legacy fallback: aggiunti override `[data-theme="dark"]` per `--color-gray-50/100/200/...`, `--color-white`, `--color-text-primary/secondary` (così le pagine non ancora migrate ai token cnx-* hanno comunque dark mode coerente).
+
+7. **Cloudflare cache-bust** (`includes/layout_head.php`, commit `e9785e0` su main):
+   - components.css aveva già `?v={mtime-filesize}`; **styles.css NON l'aveva** → ogni token o dark-mode override su `:root` non propagava al pubblico finché Cloudflare edge cache non scadeva.
+   - Fix: applicato lo stesso pattern di cache-bust a `styles.css`.
+   - Manual purge Cloudflare ancora richiesta sulla prima deploy per flushare le risposte già edge-cached.
+
+**Verifica QA:**
+- Playwright smoke su 1024px / 1280px / 1440px tutte e 11 le pagine: header non collassa, topbar visibile su ogni pagina, theme toggle funzionante, no overlap coachmark.
+- Login su https://app.nexiosolution.it/CollaboraNexio (Cloudflare Tunnel) verificato — manca solo il purge manuale lato utente.
+
+**Backup tags preservati:**
+- `ui-baseline-2026-05-03` su `f2ba87a` (pre-redesign).
+- `ui-redesign-2026-05-r1-shipped` su `abe23e7` (post-merge round 1).
+- `backups/full-backup-pre-ui-redesign-20260503.tar.gz` (3MB).
+
+**Lessons learned (da memorizzare):**
+- **Cache-bust su TUTTI gli static assets serviti da Cloudflare Tunnel**, non solo sui nuovi. Se un file esistente cambia contenuto ma URL è invariato, edge cache lo serve stale finché TTL non scade. Pattern obbligatorio: `?v={mtime-filesize}` su ogni `<link>` e `<script>` di asset versionato.
+- **Topbar fisso > sticky**: con `position: sticky` su `.main-content`, lo z-index viene scoped al stacking context del parent → coachmark / popover di pagina lo coprivano. `position: fixed; left: var(--sidebar-width)` esce dallo stacking context e funziona ovunque.
+- **Header responsive flex**: `flex: 1 1 280px` su `.header-left` impedisce il collasso a colonna sotto i 1024px senza richiedere media query custom per pagina.
+- **Reference visivi sempre da consultare PRIMA di scrivere CSS**: in questo run l'utente ha dovuto inviare 6 screenshot perché il primo round aveva interpretato male il toggle (button singolo invece di two-pill sun/moon).
+
+**Round 3 (futuro, non urgente):**
+- Migrazione completa `.btn-primary` legacy → `.cnx-btn--primary` page-by-page (eliminerebbe gli `!important` override).
+- Search bar globale del topbar cablata a backend `api/search.php` (oggi è solo decorativa).
+- Migrazione widgets ancora con `--color-white` hardcoded (audit-log cards, configurazioni panels) per dark mode bit-perfect.
+
+---
+
 ## 2026-05-03 — UI REDESIGN 2026-05 ROUND 1 SHIPPED — PR #13 open
 
 **Status:** PR APERTA su GitHub (review/merge pendente utente)
