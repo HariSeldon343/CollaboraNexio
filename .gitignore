@@ -3,6 +3,8 @@ config.secrets.php
 .env
 .env.*
 secrets.json
+tools/.cloudflare.env
+.cloudflare.env
 
 # IDE / tool state
 .cursor/
