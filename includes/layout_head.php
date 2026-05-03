@@ -44,11 +44,13 @@ $assetPrefix = $assetBase !== '' ? ($assetBase . '/') : '';
 <?php require_once __DIR__ . '/favicon.php'; ?>
 
 <!-- Core CSS (standard order) -->
-<link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/styles.css'); ?>">
 <?php
-    // CNX UI redesign 2026-05 — reusable component layer (.cnx-*).
+    // CNX UI redesign 2026-05 — cache-bust core stylesheets so Cloudflare/edge
+    // and browser caches always pick up token/component changes.
+    $cnxStylesCssV     = (string)((@filemtime(__DIR__ . '/../assets/css/styles.css')     ?: time()) . '-' . (@filesize(__DIR__ . '/../assets/css/styles.css')     ?: 0));
     $cnxComponentsCssV = (string)((@filemtime(__DIR__ . '/../assets/css/components.css') ?: time()) . '-' . (@filesize(__DIR__ . '/../assets/css/components.css') ?: 0));
 ?>
+<link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/styles.css?v=' . $cnxStylesCssV); ?>">
 <link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/components.css?v=' . $cnxComponentsCssV); ?>">
 <?php
     $cnxCompanyFilterCssV = (string)((@filemtime(__DIR__ . '/../assets/css/company_filter.css') ?: time()) . '-' . (@filesize(__DIR__ . '/../assets/css/company_filter.css') ?: 0));
