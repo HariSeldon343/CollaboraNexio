@@ -4,6 +4,39 @@
 
 ---
 
+## 2026-05-03 — UI Redesign 2026-05 Round 1 (PR #13 open)
+
+**Status:** IMPLEMENTED (review pending)
+
+**Note:** non si tratta di un bug ma di un'attività programmata di redesign UI. Annotata qui per tracciabilità delle modifiche cross-cutting al CSS/markup.
+
+**Modifiche cross-cutting:**
+- `assets/css/styles.css`: 55 nuovi token `--cnx-*` (palette teal/mint), `[data-theme="dark"]` overrides, nuova sezione SHELL scoped via `[data-cnx-sidebar=true]`.
+- `assets/css/components.css`: NUOVO file (~570 righe), 13 componenti reusabili `.cnx-*`, caricato globalmente da `layout_head.php`.
+- `assets/css/dashboard.css` + `assets/css/filemanager.css`: hex literals migrati a token `--cnx-*` (vecchio blue accent `#2563EB` → mint `--cnx-accent`).
+- `includes/sidebar.php`: rimossa tagline subtitle, aggiunto theme toggle button. Logic role-based 100% preservata.
+- `assets/js/app.js`: nuovo `initThemeToggle()` con persistenza localStorage.
+- `dashboard.php` + `files.php`: greeting CNX + page-header components. **Backend logic, query, API contracts, BUG-* invariants tutti preservati.**
+
+**Anti-patterns evitati (per CLAUDE.md sez. 3 + direction.md):**
+- Niente gradients, niente glassmorphism (eccetto modal backdrop), niente shadow > y-12 / alpha > 0.08, niente animation > 250ms.
+- BUG-104 CSRF preservato in tutti i fetch.
+- BUG-136 OnlyOffice zero-byte check resta valido.
+- BUG-066 array wrap in named keys non toccato (no API change).
+- BUG-145a `$db->query()` non toccato (no DB change).
+
+**Verifica QA:**
+- Playwright smoke 10/10 PASS, 0 blocker failures.
+- `tools/ui_diff_report.html` con 3-up Baseline|Light|Dark.
+- `tools/ui_smoke_report.json` machine-readable.
+
+**Console errors observed (PRE-ESISTENTI, non introdotti):**
+- `GET /api/events.php?tenant_id=28 -> 500` — server-side bug indipendente. Da indagare in PR separata.
+
+**File coinvolti:** 12 file modificati + 23 file aggiunti (screenshots + reports + components.css).
+
+---
+
 ## 2025-12-19 — BUG-157: Colonna errata in shift_notification_helper.php
 
 **Status:** FIXED

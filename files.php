@@ -79,7 +79,10 @@ $csrfToken = $auth->generateCSRFToken();
             <header class="header">
                 <div class="header-left">
                     <button class="sidebar-toggle" id="sidebarToggle">☰</button>
-                    <h1 class="header-title">File Manager</h1>
+                    <div class="cnx-page-header__main">
+                        <h1 class="header-title cnx-page-header__title">File Manager</h1>
+                        <p class="cnx-page-header__subtitle">Documenti, cartelle e workflow del tuo tenant</p>
+                    </div>
                     <?php if ($companyFilter->canUseCompanyFilter()): ?>
                         <?php echo $companyFilter->renderDropdown(['no_styles' => true]); ?>
                     <?php endif; ?>
@@ -104,6 +107,16 @@ $csrfToken = $auth->generateCSRFToken();
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
                         <span>Carica</span>
+                    </button>
+
+                    <!-- CNX UI redesign 2026-05 round 2: + Aggiungi (opens .cnx-modal with dropzone) -->
+                    <button class="btn btn-primary cnx-btn--in-toolbar" id="cnxAddFileBtn" type="button"
+                            style="background: var(--cnx-accent); border-color: var(--cnx-accent); color: var(--cnx-accent-ink);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px;">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        <span>Aggiungi</span>
                     </button>
 
                     <button class="btn btn-primary" id="uploadFolderBtn" style="display: none;">
@@ -166,20 +179,20 @@ $csrfToken = $auth->generateCSRFToken();
                     </div>
                 </div>
 
-                <!-- Breadcrumb Navigation -->
+                <!-- Breadcrumb Navigation (CNX redesign 2026-05) -->
                 <div class="breadcrumb-nav">
-                    <div class="breadcrumb-items">
-                        <a href="#" class="breadcrumb-item" data-path="/">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                            </svg>
-                            <span>I Miei File</span>
-                        </a>
-                        <svg class="breadcrumb-separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                        <span class="breadcrumb-current">Documenti</span>
-                    </div>
+                    <nav class="cnx-breadcrumb breadcrumb-items" aria-label="Percorso navigazione">
+                        <span class="cnx-breadcrumb__item">
+                            <a href="#" class="cnx-breadcrumb__link breadcrumb-item" data-path="/">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                </svg>
+                                I Miei File
+                            </a>
+                        </span>
+                        <span class="cnx-breadcrumb__sep" aria-hidden="true">/</span>
+                        <span class="cnx-breadcrumb__item cnx-breadcrumb__item--current breadcrumb-current">Documenti</span>
+                    </nav>
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="grid" title="Grid View">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1529,6 +1542,129 @@ $csrfToken = $auth->generateCSRFToken();
         }
 
         console.log('[WorkflowBadge] ✅ Initialization script complete');
+    })();
+    </script>
+
+    <!-- CNX UI redesign 2026-05 round 2: Add file or folder modal (reference 061415.png) -->
+    <div class="cnx-modal" id="cnxAddFileModal" aria-hidden="true" role="dialog" aria-labelledby="cnxAddFileTitle">
+        <div class="cnx-modal__dialog" role="document">
+            <header class="cnx-modal__header">
+                <h2 class="cnx-modal__title" id="cnxAddFileTitle">Aggiungi file o cartella</h2>
+                <button type="button" class="cnx-modal__close" data-cnx-close-modal aria-label="Chiudi">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </header>
+            <div class="cnx-modal__body">
+                <label class="cnx-dropzone" id="cnxAddDropzone">
+                    <input type="file" multiple class="cnx-dropzone__input" id="cnxAddFileInput">
+                    <span class="cnx-dropzone__icon" aria-hidden="true"></span>
+                    <h3 class="cnx-dropzone__title"><span style="color:var(--cnx-accent);text-decoration:underline;">Clicca per caricare</span> o trascina i file qui</h3>
+                    <p class="cnx-dropzone__hint">PDF, DOCX, XLSX, PNG, JPG &middot; max 100MB</p>
+                </label>
+                <ul class="cnx-upload-list" id="cnxUploadList" hidden></ul>
+            </div>
+            <footer class="cnx-modal__footer">
+                <button type="button" class="cnx-btn cnx-btn--ghost" data-cnx-close-modal>Annulla</button>
+                <button type="button" class="cnx-btn cnx-btn--primary" id="cnxAddFileSubmit" disabled>Carica</button>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // CNX UI redesign 2026-05 round 2: Add file or folder modal — opens cnx-modal,
+        // captures files via cnx-dropzone, delegates to window.fileManager.handleFileUpload().
+        const modal      = document.getElementById('cnxAddFileModal');
+        const openBtn    = document.getElementById('cnxAddFileBtn');
+        const dropzone   = document.getElementById('cnxAddDropzone');
+        const fileInput  = document.getElementById('cnxAddFileInput');
+        const submitBtn  = document.getElementById('cnxAddFileSubmit');
+        const listUl     = document.getElementById('cnxUploadList');
+        if (!modal || !openBtn) return;
+
+        let pendingFiles = [];
+
+        const open  = () => { modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false'); };
+        const close = () => {
+            modal.classList.remove('is-open');
+            modal.setAttribute('aria-hidden', 'true');
+            pendingFiles = [];
+            listUl.innerHTML = '';
+            listUl.hidden = true;
+            submitBtn.disabled = true;
+            fileInput.value = '';
+        };
+
+        openBtn.addEventListener('click', (e) => { e.preventDefault(); open(); });
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+        modal.querySelectorAll('[data-cnx-close-modal]').forEach(b => b.addEventListener('click', close));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) close(); });
+
+        const renderList = () => {
+            listUl.innerHTML = '';
+            pendingFiles.forEach((f, idx) => {
+                const li = document.createElement('li');
+                li.className = 'cnx-upload-item';
+                li.innerHTML = `
+                    <span class="cnx-upload-item__name">${(f.name||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'})[c])}</span>
+                    <span class="cnx-upload-item__progress" aria-hidden="true"><span></span></span>
+                    <button type="button" class="cnx-btn cnx-btn--ghost cnx-btn--sm" data-remove="${idx}" aria-label="Rimuovi" title="Rimuovi">&times;</button>
+                `;
+                listUl.appendChild(li);
+            });
+            listUl.hidden = pendingFiles.length === 0;
+            submitBtn.disabled = pendingFiles.length === 0;
+        };
+
+        listUl.addEventListener('click', (e) => {
+            const idx = e.target.closest('[data-remove]')?.dataset.remove;
+            if (idx === undefined) return;
+            pendingFiles.splice(parseInt(idx, 10), 1);
+            renderList();
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (!fileInput.files) return;
+            pendingFiles = pendingFiles.concat(Array.from(fileInput.files));
+            fileInput.value = ''; // allow re-pick of same file
+            renderList();
+        });
+
+        // Drag & drop on the dropzone label
+        ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dropzone.classList.add('is-dragover');
+        }));
+        ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dropzone.classList.remove('is-dragover');
+        }));
+        dropzone.addEventListener('drop', (e) => {
+            const dropped = e.dataTransfer?.files;
+            if (!dropped || !dropped.length) return;
+            pendingFiles = pendingFiles.concat(Array.from(dropped));
+            renderList();
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            if (!pendingFiles.length) return;
+            if (!window.fileManager || typeof window.fileManager.handleFileUpload !== 'function') {
+                console.warn('[cnxAddFileModal] fileManager.handleFileUpload not available — falling back to legacy uploadBtn');
+                document.getElementById('uploadBtn')?.click();
+                close();
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Caricamento…';
+            try {
+                await window.fileManager.handleFileUpload(pendingFiles);
+            } catch (err) {
+                console.error('[cnxAddFileModal] upload error:', err);
+            } finally {
+                submitBtn.textContent = 'Carica';
+                close();
+            }
+        });
     })();
     </script>
 

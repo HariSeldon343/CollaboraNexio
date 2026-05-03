@@ -44,13 +44,12 @@ function shouldShowPage($pageName, $role, $tenantId, $isSuperAdmin) {
 }
 ?>
 
-<div class="sidebar">
+<div class="sidebar" data-cnx-sidebar="true">
     <div class="sidebar-header">
         <div class="sidebar-logo">
             <img src="<?php echo htmlspecialchars($hrefPrefix . 'assets/images/logo.png'); ?>" alt="CollaboraNexio" class="logo-img">
             <span class="logo-text">NEXIO</span>
         </div>
-        <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
     </div>
 
     <nav class="sidebar-nav">

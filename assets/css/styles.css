@@ -127,6 +127,126 @@
     --sidebar-collapsed-width: 64px;
     --header-height: 60px;
     --container-max-width: 1280px;
+
+    /* ========================================
+       UI REDESIGN 2026-05 — CNX Design Tokens
+       Spec: docs/design/direction.md
+       Light theme defaults; dark overrides in [data-theme="dark"]
+       ======================================== */
+
+    /* CNX — Surfaces & Backgrounds */
+    --cnx-bg-app: #F5F7F8;
+    --cnx-bg-surface: #FFFFFF;
+    --cnx-bg-subtle: #EEF2F3;
+    --cnx-bg-sidebar: #1F3D3D;
+    --cnx-bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --cnx-bg-sidebar-active: rgba(95, 202, 211, 0.16);
+
+    /* CNX — Accent (mint/teal — single accent) */
+    --cnx-accent: #5FCAD3;
+    --cnx-accent-hover: #4FB8C2;
+    --cnx-accent-soft: #E8F7F8;
+    --cnx-accent-ink: #0F2D31;
+
+    /* CNX — Text */
+    --cnx-text-primary: #0F1A1F;
+    --cnx-text-secondary: #4A5560;
+    --cnx-text-muted: #8893A0;
+    --cnx-text-on-sidebar: #FFFFFF;
+    --cnx-text-on-sidebar-muted: rgba(255, 255, 255, 0.62);
+
+    /* CNX — Borders */
+    --cnx-border: #E4E8EC;
+    --cnx-border-strong: #CFD6DC;
+
+    /* CNX — Status */
+    --cnx-success: #22C55E;
+    --cnx-warning: #F59E0B;
+    --cnx-danger: #EF4444;
+    --cnx-info: #5FCAD3;
+
+    /* CNX — Typography (font-size / line-height / weight) */
+    --cnx-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --cnx-text-display-size: 32px;
+    --cnx-text-display-line: 40px;
+    --cnx-text-display-weight: 700;
+    --cnx-text-h1-size: 24px;
+    --cnx-text-h1-line: 32px;
+    --cnx-text-h1-weight: 600;
+    --cnx-text-h2-size: 18px;
+    --cnx-text-h2-line: 26px;
+    --cnx-text-h2-weight: 600;
+    --cnx-text-h3-size: 15px;
+    --cnx-text-h3-line: 22px;
+    --cnx-text-h3-weight: 600;
+    --cnx-text-body-size: 14px;
+    --cnx-text-body-line: 22px;
+    --cnx-text-body-weight: 400;
+    --cnx-text-small-size: 13px;
+    --cnx-text-small-line: 20px;
+    --cnx-text-small-weight: 400;
+    --cnx-text-caption-size: 12px;
+    --cnx-text-caption-line: 16px;
+    --cnx-text-caption-weight: 500;
+    --cnx-text-caption-tracking: 0.06em;
+    --cnx-tracking-tight: -0.01em;
+
+    /* CNX — Spacing extensions */
+    --cnx-space-card-padding: 24px;
+    --cnx-space-section-gap: 32px;
+
+    /* CNX — Radii */
+    --cnx-radius-sm: 6px;
+    --cnx-radius-md: 10px;
+    --cnx-radius-lg: 16px;
+    --cnx-radius-xl: 20px;
+    --cnx-radius-pill: 9999px;
+
+    /* CNX — Shadows (max y-12, alpha <= 0.08) */
+    --cnx-shadow-sm: 0 1px 2px rgba(15, 26, 31, 0.04);
+    --cnx-shadow-md: 0 4px 12px rgba(15, 26, 31, 0.06);
+    --cnx-shadow-lg: 0 12px 24px rgba(15, 26, 31, 0.08);
+    --cnx-shadow-focus: 0 0 0 3px rgba(95, 202, 211, 0.32);
+
+    /* CNX — Motion */
+    --cnx-transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   UI REDESIGN 2026-05 — Dark theme overrides
+   Sidebar conserva il proprio aspetto in entrambi i temi (gia' dark by design).
+   Solo content area cambia.
+   ======================================== */
+[data-theme="dark"] {
+    --cnx-bg-app: #0E1A1D;
+    --cnx-bg-surface: #15262A;
+    --cnx-bg-subtle: #1B2F33;
+    --cnx-bg-sidebar: #0A1517;
+
+    --cnx-accent: #5FCAD3;
+    --cnx-accent-soft: rgba(95, 202, 211, 0.12);
+
+    --cnx-text-primary: #E6EEF0;
+    --cnx-text-secondary: #A8B5BB;
+    --cnx-text-muted: #6B7A82;
+
+    --cnx-border: #22363B;
+    --cnx-border-strong: #2E464C;
+
+    /* Override the legacy gray scale so pages still using --color-gray-*
+       become legible in dark mode (greeting headings, body text, table
+       text, card titles all flip from black-on-dark to light-on-dark). */
+    --color-gray-50:  #1B2F33;
+    --color-gray-100: #1B2F33;
+    --color-gray-200: #22363B;
+    --color-gray-300: #2E464C;
+    --color-gray-400: #4A5560;
+    --color-gray-500: #8893A0;
+    --color-gray-600: #A8B5BB;
+    --color-gray-700: #C5CFD3;
+    --color-gray-800: #DBE3E6;
+    --color-gray-900: #E6EEF0;
+    --color-white:    #15262A;
 }
 
 /* ========================================
@@ -1484,5 +1604,265 @@ select.form-control {
     a {
         color: #000;
         text-decoration: underline;
+    }
+}
+
+/* ============================================================
+   UI REDESIGN 2026-05 — SHELL (sidebar refresh + theme toggle)
+   Spec: docs/design/direction.md (sezione "Shell")
+   Scoped via [data-cnx-sidebar="true"] to keep legacy rules intact.
+   ============================================================ */
+
+/* Body bg blends with new sidebar (no visible seam) */
+body {
+    background-color: var(--cnx-bg-sidebar);
+}
+
+/* Sidebar — flat teal, no gradient */
+.sidebar[data-cnx-sidebar="true"] {
+    background: var(--cnx-bg-sidebar);
+    color: var(--cnx-text-on-sidebar);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sidebar[data-cnx-sidebar="true"] .sidebar-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar[data-cnx-sidebar="true"] .sidebar-logo {
+    color: var(--cnx-text-on-sidebar);
+    gap: 10px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .logo-img {
+    width: 28px;
+    height: 28px;
+    filter: drop-shadow(0 0 6px rgba(95, 202, 211, 0.18));
+}
+
+.sidebar[data-cnx-sidebar="true"] .logo-text {
+    color: var(--cnx-text-on-sidebar);
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+}
+
+/* Section labels — caption uppercase tracking 0.06em */
+.sidebar[data-cnx-sidebar="true"] .nav-section {
+    margin-bottom: 8px;
+    padding: 0 8px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-section-title {
+    padding: 14px 12px 6px;
+    font-size: var(--cnx-text-caption-size);
+    line-height: var(--cnx-text-caption-line);
+    font-weight: 600;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    color: var(--cnx-text-on-sidebar-muted);
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+/* Nav items — pill, soft hover, accent active */
+.sidebar[data-cnx-sidebar="true"] .nav-item {
+    margin: 0 0 2px;
+    padding: 9px 12px;
+    gap: 12px;
+    color: var(--cnx-text-on-sidebar-muted);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: var(--cnx-radius-md);
+    transition: var(--cnx-transition);
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item:hover {
+    background-color: var(--cnx-bg-sidebar-hover);
+    color: var(--cnx-text-on-sidebar);
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item.active {
+    background-color: var(--cnx-bg-sidebar-active);
+    color: var(--cnx-accent);
+    font-weight: 600;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    height: auto;
+    background-color: var(--cnx-accent);
+    border-radius: 0 3px 3px 0;
+    transform: none;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item .icon {
+    color: currentColor;
+    width: 18px;
+    height: 18px;
+}
+
+.sidebar[data-cnx-sidebar="true"] .nav-item .icon::before {
+    width: 18px;
+    height: 18px;
+    background-color: currentColor;
+}
+
+/* Footer — user card only (theme toggle moved to top-right of content area, ref-style) */
+.sidebar[data-cnx-sidebar="true"] .sidebar-footer {
+    padding: 12px 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* CNX theme toggle — two-pill widget (reference: sun + moon side-by-side, mint on active) */
+.cnx-theme-toggle {
+    /* Default: fixed in top-right (fallback for pages without the topbar). */
+    position: fixed;
+    top: 16px;
+    right: 24px;
+    z-index: 250;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 4px;
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-pill);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+/* When docked in the global topbar, drop the fixed positioning + shadow. */
+.cnx-theme-toggle--in-topbar {
+    position: static;
+    box-shadow: none;
+    background: var(--cnx-bg-subtle);
+    border-color: transparent;
+}
+
+.cnx-theme-toggle__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--cnx-radius-pill);
+    color: var(--cnx-text-muted);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-theme-toggle__btn:hover {
+    color: var(--cnx-text-primary);
+}
+
+.cnx-theme-toggle__btn:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-theme-toggle__btn[aria-pressed="true"] {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+}
+
+.cnx-theme-toggle__icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+}
+
+.cnx-theme-toggle__icon--sun {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
+}
+
+.cnx-theme-toggle__icon--moon {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+}
+
+@media (max-width: 640px) {
+    .cnx-theme-toggle { top: 8px; right: 8px; }
+}
+
+/* User info card refresh */
+.sidebar[data-cnx-sidebar="true"] .user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--cnx-bg-sidebar-hover);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--cnx-radius-md);
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-avatar {
+    width: 36px;
+    height: 36px;
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-name {
+    color: var(--cnx-text-on-sidebar);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar[data-cnx-sidebar="true"] .user-badge {
+    color: var(--cnx-text-on-sidebar-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Main content uses light app background (from tokens) */
+.main-content {
+    background-color: var(--cnx-bg-app);
+}
+
+/* Color transition on theme change */
+html { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }
+
+@media (max-width: 768px) {
+    .sidebar[data-cnx-sidebar="true"] .sidebar-footer {
+        padding: 8px 10px 12px;
     }
 }
