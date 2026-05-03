@@ -1698,7 +1698,7 @@ body {
     background-color: currentColor;
 }
 
-/* Footer — theme toggle + user card */
+/* Footer — user card only (theme toggle moved to top-right of content area, ref-style) */
 .sidebar[data-cnx-sidebar="true"] .sidebar-footer {
     padding: 12px 12px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -1707,40 +1707,55 @@ body {
     gap: 10px;
 }
 
-/* Theme toggle button (sidebar footer) */
+/* CNX theme toggle — two-pill widget (reference: sun + moon side-by-side, mint on active) */
 .cnx-theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 24px;
+    z-index: 250;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--cnx-bg-sidebar-hover);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--cnx-radius-md);
-    color: var(--cnx-text-on-sidebar-muted);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
+    gap: 0;
+    padding: 4px;
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-pill);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-theme-toggle__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--cnx-radius-pill);
+    color: var(--cnx-text-muted);
     cursor: pointer;
-    width: 100%;
     transition: var(--cnx-transition);
-    text-align: left;
 }
 
-.cnx-theme-toggle:hover {
-    background: rgba(255, 255, 255, 0.10);
-    color: var(--cnx-text-on-sidebar);
+.cnx-theme-toggle__btn:hover {
+    color: var(--cnx-text-primary);
 }
 
-.cnx-theme-toggle:focus-visible {
+.cnx-theme-toggle__btn:focus-visible {
     outline: none;
     box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-theme-toggle__btn[aria-pressed="true"] {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
 }
 
 .cnx-theme-toggle__icon {
     display: inline-block;
     width: 16px;
     height: 16px;
-    flex-shrink: 0;
     background-color: currentColor;
     mask-size: contain;
     mask-repeat: no-repeat;
@@ -1750,32 +1765,18 @@ body {
     -webkit-mask-position: center;
 }
 
-.cnx-theme-toggle__icon--moon {
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
-}
-
 .cnx-theme-toggle__icon--sun {
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E");
 }
 
-/* In light mode show moon (click → dark); in dark mode show sun (click → light) */
-html:not([data-theme="dark"]) .cnx-theme-toggle__icon--sun { display: none; }
-html[data-theme="dark"]      .cnx-theme-toggle__icon--moon { display: none; }
-
-.cnx-theme-toggle__label {
-    flex: 1;
-    line-height: 1;
+.cnx-theme-toggle__icon--moon {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
 }
 
-.sidebar.collapsed .cnx-theme-toggle__label {
-    display: none;
-}
-
-.sidebar.collapsed .cnx-theme-toggle {
-    justify-content: center;
-    padding: 8px;
+@media (max-width: 640px) {
+    .cnx-theme-toggle { top: 8px; right: 8px; }
 }
 
 /* User info card refresh */

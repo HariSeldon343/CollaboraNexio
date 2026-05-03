@@ -40,29 +40,44 @@
     }
 
     initThemeToggle() {
-        // CNX redesign 2026-05: light/dark theme toggle persisted in localStorage.
-        // Theme is already applied early in loadUserSession(); here we just bind the button.
-        const toggle = document.querySelector('[data-cnx-theme-toggle]');
-        if (!toggle) return;
-        if (toggle.__cnxBound) return;
-        toggle.__cnxBound = true;
+        // CNX redesign 2026-05: two-pill sun/moon widget injected top-right of the page.
+        // Reference design: side-by-side icon pills, mint highlight on active. Persisted in localStorage.
+        // Skip on the public login page (no app shell).
+        const hasShell = !!document.querySelector('.sidebar[data-cnx-sidebar="true"]');
+        if (!hasShell) return;
+        if (document.querySelector('.cnx-theme-toggle')) return; // idempotent
 
         const html = document.documentElement;
+        const widget = document.createElement('div');
+        widget.className = 'cnx-theme-toggle';
+        widget.setAttribute('role', 'group');
+        widget.setAttribute('aria-label', 'Tema chiaro o scuro');
+        widget.innerHTML = `
+            <button type="button" class="cnx-theme-toggle__btn" data-cnx-theme="light" aria-label="Tema chiaro" title="Tema chiaro">
+                <span class="cnx-theme-toggle__icon cnx-theme-toggle__icon--sun" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="cnx-theme-toggle__btn" data-cnx-theme="dark" aria-label="Tema scuro" title="Tema scuro">
+                <span class="cnx-theme-toggle__icon cnx-theme-toggle__icon--moon" aria-hidden="true"></span>
+            </button>
+        `;
+        document.body.appendChild(widget);
+
         const apply = (theme) => {
             const next = theme === 'dark' ? 'dark' : 'light';
             html.setAttribute('data-theme', next);
-            toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
-            try {
-                localStorage.setItem('theme', next);
-            } catch (e) { /* storage disabled — silent */ }
+            widget.querySelectorAll('.cnx-theme-toggle__btn').forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.cnxTheme === next ? 'true' : 'false');
+            });
+            try { localStorage.setItem('theme', next); } catch (e) { /* storage disabled */ }
         };
 
-        // Sync initial aria-pressed state with whatever loadUserSession applied.
+        // Sync initial state with whatever loadUserSession() applied.
         apply(html.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
-        toggle.addEventListener('click', () => {
-            const current = html.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-            apply(current === 'dark' ? 'light' : 'dark');
+        widget.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cnx-theme-toggle__btn');
+            if (!btn) return;
+            apply(btn.dataset.cnxTheme);
         });
     }
 

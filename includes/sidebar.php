@@ -157,16 +157,6 @@ function shouldShowPage($pageName, $role, $tenantId, $isSuperAdmin) {
     </nav>
 
     <div class="sidebar-footer">
-        <button type="button"
-                class="cnx-theme-toggle"
-                id="cnxThemeToggle"
-                aria-label="Cambia tema chiaro/scuro"
-                title="Cambia tema chiaro/scuro"
-                data-cnx-theme-toggle>
-            <span class="cnx-theme-toggle__icon cnx-theme-toggle__icon--moon" aria-hidden="true"></span>
-            <span class="cnx-theme-toggle__icon cnx-theme-toggle__icon--sun" aria-hidden="true"></span>
-            <span class="cnx-theme-toggle__label">Tema</span>
-        </button>
         <div class="user-info">
             <div class="user-avatar">
                 <?php
