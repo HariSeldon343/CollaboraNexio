@@ -79,7 +79,10 @@ $csrfToken = $auth->generateCSRFToken();
             <header class="header">
                 <div class="header-left">
                     <button class="sidebar-toggle" id="sidebarToggle">☰</button>
-                    <h1 class="header-title">File Manager</h1>
+                    <div class="cnx-page-header__main">
+                        <h1 class="header-title cnx-page-header__title">File Manager</h1>
+                        <p class="cnx-page-header__subtitle">Documenti, cartelle e workflow del tuo tenant</p>
+                    </div>
                     <?php if ($companyFilter->canUseCompanyFilter()): ?>
                         <?php echo $companyFilter->renderDropdown(['no_styles' => true]); ?>
                     <?php endif; ?>
@@ -166,20 +169,20 @@ $csrfToken = $auth->generateCSRFToken();
                     </div>
                 </div>
 
-                <!-- Breadcrumb Navigation -->
+                <!-- Breadcrumb Navigation (CNX redesign 2026-05) -->
                 <div class="breadcrumb-nav">
-                    <div class="breadcrumb-items">
-                        <a href="#" class="breadcrumb-item" data-path="/">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                            </svg>
-                            <span>I Miei File</span>
-                        </a>
-                        <svg class="breadcrumb-separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                        <span class="breadcrumb-current">Documenti</span>
-                    </div>
+                    <nav class="cnx-breadcrumb breadcrumb-items" aria-label="Percorso navigazione">
+                        <span class="cnx-breadcrumb__item">
+                            <a href="#" class="cnx-breadcrumb__link breadcrumb-item" data-path="/">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                </svg>
+                                I Miei File
+                            </a>
+                        </span>
+                        <span class="cnx-breadcrumb__sep" aria-hidden="true">/</span>
+                        <span class="cnx-breadcrumb__item cnx-breadcrumb__item--current breadcrumb-current">Documenti</span>
+                    </nav>
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="grid" title="Grid View">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

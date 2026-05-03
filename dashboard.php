@@ -211,15 +211,35 @@ $csrfToken = $auth->generateCSRFToken();
     </style>
 </head>
 <?php require __DIR__ . '/includes/layout_start.php'; ?>
-            <div class="header">
-                <h1 class="page-title">Dashboard</h1>
-                <div class="flex items-center gap-4">
+            <?php
+                // CNX UI redesign 2026-05 — personalized greeting + Italian date in page header.
+                $cnxGreetingFirstName = trim(strtok((string)($currentUser['name'] ?? 'Utente'), ' '));
+                if ($cnxGreetingFirstName === '') { $cnxGreetingFirstName = 'Utente'; }
+                $cnxItalianMonths = [
+                    1 => 'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+                    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
+                ];
+                $cnxItalianWeekdays = [
+                    0 => 'domenica', 'lunedì', 'martedì', 'mercoledì',
+                    'giovedì', 'venerdì', 'sabato'
+                ];
+                $cnxNow = new DateTimeImmutable('now');
+                $cnxToday = ucfirst($cnxItalianWeekdays[(int)$cnxNow->format('w')])
+                          . ', ' . (int)$cnxNow->format('j')
+                          . ' ' . $cnxItalianMonths[(int)$cnxNow->format('n')]
+                          . ' ' . $cnxNow->format('Y');
+            ?>
+            <header class="header cnx-page-header cnx-page-header--no-border" style="padding: 24px 32px;">
+                <div class="cnx-page-header__main">
+                    <h1 class="cnx-display">Ciao, <?php echo htmlspecialchars($cnxGreetingFirstName); ?>!</h1>
+                    <p class="cnx-page-header__subtitle"><?php echo htmlspecialchars($cnxToday); ?></p>
+                </div>
+                <div class="cnx-page-header__actions">
                     <?php if ($companyFilter->canUseCompanyFilter()): ?>
                         <?php echo $companyFilter->renderDropdown(); ?>
                     <?php endif; ?>
-                    <span class="text-sm text-muted">Benvenuto, <?php echo htmlspecialchars($currentUser['name']); ?></span>
                 </div>
-            </div>
+            </header>
 
             <div class="page-content">
                 <!-- Hidden current user id for JS helpers (dashboard widgets) -->
