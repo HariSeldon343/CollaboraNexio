@@ -9,6 +9,104 @@
    are NOT touched — pages migrate at their own pace.
    ============================================================ */
 
+/* ============================================================
+   APP TOPBAR — global header with search + theme toggle
+   Round 2 reference: sun/moon pills right, search bar centered, soft accent bg
+   ============================================================ */
+.cnx-app-topbar {
+    /* Anchored to the viewport, OUTSIDE per-page stacking contexts so it never
+       gets covered by page-level absolute/sticky toolbars (e.g. turni.php). */
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    z-index: 250; /* above sidebar (200) */
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 64px;
+    padding: 0 32px;
+    background: var(--cnx-accent-soft);
+    border-bottom: 1px solid var(--cnx-border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Reserve the 64px under the fixed topbar, so per-page content starts below. */
+.main-content {
+    padding-top: 64px;
+}
+
+@media (max-width: 768px) {
+    .cnx-app-topbar { left: 0; }
+    .main-content   { padding-top: 56px; }
+}
+
+.cnx-app-topbar__search {
+    flex: 1;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.cnx-app-topbar__search .cnx-input {
+    height: 44px;
+    padding-left: 40px;
+    background: var(--cnx-bg-surface);
+    border-color: transparent;
+    border-radius: var(--cnx-radius-pill);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-app-topbar__search .cnx-input:focus {
+    border-color: var(--cnx-accent);
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-app-topbar__spacer {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .cnx-app-topbar { padding: 0 16px; height: 56px; }
+    .cnx-app-topbar__search .cnx-input { height: 40px; }
+}
+
+/* ============================================================
+   LEGACY BUTTON ALIGNMENT — mint accent on .btn-primary
+   Migrates the entire app's primary CTAs to the new mint accent
+   without touching every page. Targeted override; non-primary
+   variants (.btn-secondary, .btn-ghost, .btn-success, .btn-error)
+   keep their existing semantic colors.
+   ============================================================ */
+.btn-primary,
+.btn.btn-primary {
+    background-color: var(--cnx-accent) !important;
+    border-color: var(--cnx-accent) !important;
+    color: var(--cnx-accent-ink) !important;
+}
+
+.btn-primary:hover,
+.btn.btn-primary:hover {
+    background-color: var(--cnx-accent-hover) !important;
+    border-color: var(--cnx-accent-hover) !important;
+}
+
+.btn-primary:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+/* Legacy outline-style primary anchors used in dashboard widgets ("Apri Turni", etc.) */
+.btn-outline {
+    color: var(--cnx-accent) !important;
+}
+.btn-outline:hover {
+    color: var(--cnx-accent-hover) !important;
+}
+
 /* ---------- Utility: section label ---------- */
 .cnx-section-label {
     font-size: var(--cnx-text-caption-size);

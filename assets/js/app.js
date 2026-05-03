@@ -35,14 +35,53 @@
         this.setupAjaxDefaults();
         this.loadUserSession();
         this.initThemeToggle();
+        this.initAppTopbar();
         this.ensureSessionTimeout();
         this.ensureLegalNotice();
     }
 
+    initAppTopbar() {
+        // CNX redesign 2026-05 round 2: inject the global app topbar (search + theme)
+        // ABOVE the per-page <header class="header"> on every authenticated page.
+        // The topbar lives inside .main-content as the first child, sticky to the top.
+        // Skips on the public login page (no app shell).
+        const main = document.getElementById('main-content');
+        const hasShell = !!document.querySelector('.sidebar[data-cnx-sidebar="true"]');
+        if (!hasShell || !main) return;
+        if (main.querySelector('.cnx-app-topbar')) return; // idempotent
+
+        const topbar = document.createElement('div');
+        topbar.className = 'cnx-app-topbar';
+        topbar.innerHTML = `
+            <div class="cnx-app-topbar__search cnx-input-group">
+                <span class="cnx-input-group__icon" aria-hidden="true"></span>
+                <input type="search"
+                       class="cnx-input cnx-input--search"
+                       id="cnxGlobalSearch"
+                       placeholder="Cerca file, persone, ticket..."
+                       autocomplete="off"
+                       aria-label="Ricerca globale">
+            </div>
+            <div class="cnx-app-topbar__spacer"></div>
+        `;
+        main.insertBefore(topbar, main.firstChild);
+
+        // Wire Ctrl/Cmd+K to focus the global search input.
+        const input = topbar.querySelector('#cnxGlobalSearch');
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                input?.focus();
+                input?.select();
+            }
+        });
+    }
+
     initThemeToggle() {
-        // CNX redesign 2026-05: two-pill sun/moon widget injected top-right of the page.
-        // Reference design: side-by-side icon pills, mint highlight on active. Persisted in localStorage.
-        // Skip on the public login page (no app shell).
+        // CNX redesign 2026-05: two-pill sun/moon widget. Round 2 docks it inside
+        // the global topbar's right slot (.cnx-app-topbar__spacer); falls back to
+        // fixed top-right if the topbar isn't injected yet (e.g. login page,
+        // or if init order ever changes).
         const hasShell = !!document.querySelector('.sidebar[data-cnx-sidebar="true"]');
         if (!hasShell) return;
         if (document.querySelector('.cnx-theme-toggle')) return; // idempotent
@@ -60,7 +99,15 @@
                 <span class="cnx-theme-toggle__icon cnx-theme-toggle__icon--moon" aria-hidden="true"></span>
             </button>
         `;
-        document.body.appendChild(widget);
+
+        // Wait one tick so initAppTopbar (which runs right after) can complete.
+        setTimeout(() => {
+            const slot = document.querySelector('.cnx-app-topbar__spacer') || document.body;
+            slot.appendChild(widget);
+            if (slot.classList.contains('cnx-app-topbar__spacer')) {
+                widget.classList.add('cnx-theme-toggle--in-topbar');
+            }
+        }, 0);
 
         const apply = (theme) => {
             const next = theme === 'dark' ? 'dark' : 'light';

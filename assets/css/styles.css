@@ -232,6 +232,21 @@
 
     --cnx-border: #22363B;
     --cnx-border-strong: #2E464C;
+
+    /* Override the legacy gray scale so pages still using --color-gray-*
+       become legible in dark mode (greeting headings, body text, table
+       text, card titles all flip from black-on-dark to light-on-dark). */
+    --color-gray-50:  #1B2F33;
+    --color-gray-100: #1B2F33;
+    --color-gray-200: #22363B;
+    --color-gray-300: #2E464C;
+    --color-gray-400: #4A5560;
+    --color-gray-500: #8893A0;
+    --color-gray-600: #A8B5BB;
+    --color-gray-700: #C5CFD3;
+    --color-gray-800: #DBE3E6;
+    --color-gray-900: #E6EEF0;
+    --color-white:    #15262A;
 }
 
 /* ========================================
@@ -1709,6 +1724,7 @@ body {
 
 /* CNX theme toggle — two-pill widget (reference: sun + moon side-by-side, mint on active) */
 .cnx-theme-toggle {
+    /* Default: fixed in top-right (fallback for pages without the topbar). */
     position: fixed;
     top: 16px;
     right: 24px;
@@ -1721,6 +1737,14 @@ body {
     border: 1px solid var(--cnx-border);
     border-radius: var(--cnx-radius-pill);
     box-shadow: var(--cnx-shadow-sm);
+}
+
+/* When docked in the global topbar, drop the fixed positioning + shadow. */
+.cnx-theme-toggle--in-topbar {
+    position: static;
+    box-shadow: none;
+    background: var(--cnx-bg-subtle);
+    border-color: transparent;
 }
 
 .cnx-theme-toggle__btn {
