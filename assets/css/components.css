@@ -1,0 +1,849 @@
+/* ============================================================
+   CollaboraNexio — Reusable UI Components (cnx-*)
+   UI REDESIGN 2026-05 — Step 8/11 (component-engineer)
+   Spec: docs/design/direction.md  (sezione "Components")
+   Tokens: docs/design/tokens.md  (assets/css/styles.css :root)
+
+   Loaded AFTER styles.css. All component classes are namespaced
+   with the .cnx-* prefix. Legacy .btn / .modal / .table styles
+   are NOT touched — pages migrate at their own pace.
+   ============================================================ */
+
+/* ---------- Utility: section label ---------- */
+.cnx-section-label {
+    font-size: var(--cnx-text-caption-size);
+    line-height: var(--cnx-text-caption-line);
+    font-weight: 600;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    text-transform: uppercase;
+    color: var(--cnx-text-muted);
+    margin-bottom: 12px;
+    display: block;
+}
+
+/* ============================================================
+   BUTTONS — pill, three variants
+   ============================================================ */
+.cnx-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 20px;
+    font-family: inherit;
+    font-size: var(--cnx-text-body-size);
+    font-weight: 600;
+    line-height: 1;
+    border-radius: var(--cnx-radius-pill);
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    user-select: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-btn:disabled,
+.cnx-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.cnx-btn--primary {
+    background: var(--cnx-accent);
+    color: var(--cnx-accent-ink);
+    border-color: var(--cnx-accent);
+}
+
+.cnx-btn--primary:hover:not(:disabled) {
+    background: var(--cnx-accent-hover);
+    border-color: var(--cnx-accent-hover);
+}
+
+.cnx-btn--secondary {
+    background: transparent;
+    color: var(--cnx-text-primary);
+    border-color: var(--cnx-border-strong);
+}
+
+.cnx-btn--secondary:hover:not(:disabled) {
+    background: var(--cnx-bg-subtle);
+}
+
+.cnx-btn--ghost {
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    border-color: transparent;
+}
+
+.cnx-btn--ghost:hover:not(:disabled) {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-btn--sm {
+    height: 32px;
+    padding: 0 14px;
+    font-size: var(--cnx-text-small-size);
+}
+
+.cnx-btn--icon {
+    width: 40px;
+    padding: 0;
+    border-radius: var(--cnx-radius-pill);
+}
+
+.cnx-btn--icon.cnx-btn--sm {
+    width: 32px;
+}
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+.cnx-input {
+    display: block;
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-primary);
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-md);
+    transition: var(--cnx-transition);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-input::placeholder {
+    color: var(--cnx-text-muted);
+}
+
+.cnx-input:focus {
+    outline: none;
+    border-color: var(--cnx-accent);
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-input:disabled {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    cursor: not-allowed;
+}
+
+/* Search input — pill variant with prefix icon */
+.cnx-input-group {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+}
+
+.cnx-input-group__icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--cnx-text-muted);
+    pointer-events: none;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+}
+
+.cnx-input--search {
+    border-radius: var(--cnx-radius-pill);
+    background: var(--cnx-bg-subtle);
+    border-color: transparent;
+    padding-left: 38px;
+}
+
+.cnx-input--search:focus {
+    background: var(--cnx-bg-surface);
+    border-color: var(--cnx-accent);
+}
+
+/* ============================================================
+   FILTER PILL (dropdown trigger)
+   ============================================================ */
+.cnx-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: var(--cnx-text-small-size);
+    font-weight: 500;
+    color: var(--cnx-text-secondary);
+    background: var(--cnx-bg-subtle);
+    border: 1px solid transparent;
+    border-radius: var(--cnx-radius-pill);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-filter-pill:hover {
+    background: var(--cnx-border);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-filter-pill:focus-visible {
+    outline: none;
+    box-shadow: var(--cnx-shadow-focus);
+}
+
+.cnx-filter-pill[aria-expanded="true"],
+.cnx-filter-pill.is-active {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+}
+
+.cnx-filter-pill__chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   CARD
+   ============================================================ */
+.cnx-card {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    padding: var(--cnx-space-card-padding);
+}
+
+.cnx-card--flat {
+    box-shadow: none;
+}
+
+.cnx-card--padding-lg { padding: 32px; }
+.cnx-card--padding-sm { padding: 16px; }
+
+.cnx-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.cnx-card__title {
+    font-size: var(--cnx-text-h2-size);
+    line-height: var(--cnx-text-h2-line);
+    font-weight: var(--cnx-text-h2-weight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-card__subtitle {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+    margin: 4px 0 0;
+}
+
+/* ============================================================
+   BREADCRUMB
+   ============================================================ */
+.cnx-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--cnx-text-small-size);
+    line-height: 1.4;
+    color: var(--cnx-text-muted);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cnx-breadcrumb__item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.cnx-breadcrumb__link {
+    color: var(--cnx-text-secondary);
+    text-decoration: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-breadcrumb__link:hover {
+    color: var(--cnx-accent);
+}
+
+.cnx-breadcrumb__sep {
+    color: var(--cnx-text-muted);
+    margin: 0 4px;
+    user-select: none;
+}
+
+.cnx-breadcrumb__item--current {
+    color: var(--cnx-text-primary);
+    font-weight: 600;
+}
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+.cnx-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--cnx-border);
+    flex-wrap: wrap;
+}
+
+.cnx-page-header__main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cnx-page-header__title {
+    font-size: var(--cnx-text-h1-size);
+    line-height: var(--cnx-text-h1-line);
+    font-weight: var(--cnx-text-h1-weight);
+    letter-spacing: var(--cnx-tracking-tight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-page-header__subtitle {
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-muted);
+    margin: 0;
+}
+
+.cnx-page-header__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cnx-page-header--no-border {
+    border-bottom: 0;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+}
+
+/* Display heading (Dashboard greeting) */
+.cnx-display {
+    font-size: var(--cnx-text-display-size);
+    line-height: var(--cnx-text-display-line);
+    font-weight: var(--cnx-text-display-weight);
+    letter-spacing: var(--cnx-tracking-tight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.cnx-table-wrap {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-md);
+    overflow: hidden;
+}
+
+.cnx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-secondary);
+}
+
+.cnx-table thead th {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cnx-border);
+}
+
+.cnx-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--cnx-border);
+    vertical-align: middle;
+    color: var(--cnx-text-primary);
+}
+
+.cnx-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cnx-table tbody tr {
+    transition: background-color 120ms ease;
+}
+
+.cnx-table tbody tr:hover {
+    background: var(--cnx-bg-subtle);
+}
+
+.cnx-table tbody tr.is-selected {
+    background: var(--cnx-accent-soft);
+}
+
+.cnx-table .cnx-table__checkbox {
+    width: 32px;
+    padding-right: 0;
+}
+
+.cnx-table__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--cnx-text-primary);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.cnx-table__name:hover {
+    color: var(--cnx-accent);
+}
+
+.cnx-table__name-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--cnx-text-muted);
+}
+
+/* Action cell ⋯ */
+.cnx-table__actions {
+    text-align: right;
+    width: 56px;
+}
+
+/* ============================================================
+   BADGE
+   ============================================================ */
+.cnx-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    border-radius: var(--cnx-radius-sm);
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-secondary);
+    border: 1px solid transparent;
+}
+
+.cnx-badge--success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803D;
+}
+
+.cnx-badge--warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #B45309;
+}
+
+.cnx-badge--danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #B91C1C;
+}
+
+.cnx-badge--info,
+.cnx-badge--accent {
+    background: var(--cnx-accent-soft);
+    color: var(--cnx-accent-ink);
+}
+
+/* Dark theme badge color tweaks (text legibility) */
+[data-theme="dark"] .cnx-badge--success { color: #4ADE80; }
+[data-theme="dark"] .cnx-badge--warning { color: #FBBF24; }
+[data-theme="dark"] .cnx-badge--danger  { color: #F87171; }
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.cnx-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 26, 31, 0.48);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.cnx-modal.is-open,
+.cnx-modal[aria-hidden="false"] {
+    display: flex;
+    animation: cnx-fade-in 180ms ease-out;
+}
+
+.cnx-modal__dialog {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 48px);
+    background: var(--cnx-bg-surface);
+    border-radius: var(--cnx-radius-xl);
+    box-shadow: var(--cnx-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: cnx-modal-pop 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cnx-modal__dialog--lg { max-width: 720px; }
+.cnx-modal__dialog--sm { max-width: 420px; }
+
+.cnx-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 24px 24px 16px;
+}
+
+.cnx-modal__title {
+    font-size: var(--cnx-text-h2-size);
+    line-height: var(--cnx-text-h2-line);
+    font-weight: var(--cnx-text-h2-weight);
+    color: var(--cnx-text-primary);
+    margin: 0;
+}
+
+.cnx-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: var(--cnx-radius-pill);
+    color: var(--cnx-text-muted);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-modal__close:hover {
+    background: var(--cnx-bg-subtle);
+    color: var(--cnx-text-primary);
+}
+
+.cnx-modal__body {
+    padding: 8px 24px 24px;
+    overflow-y: auto;
+}
+
+.cnx-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--cnx-border);
+}
+
+@keyframes cnx-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes cnx-modal-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* ============================================================
+   DROPZONE  (used inside upload modal)
+   ============================================================ */
+.cnx-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 24px;
+    background: var(--cnx-accent-soft);
+    border: 2px dashed var(--cnx-accent);
+    border-radius: var(--cnx-radius-lg);
+    color: var(--cnx-text-secondary);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-dropzone:hover,
+.cnx-dropzone.is-dragover {
+    background: rgba(95, 202, 211, 0.16);
+    border-color: var(--cnx-accent-hover);
+}
+
+.cnx-dropzone__icon {
+    width: 40px;
+    height: 40px;
+    color: var(--cnx-accent);
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E");
+}
+
+.cnx-dropzone__title {
+    font-size: var(--cnx-text-body-size);
+    color: var(--cnx-text-primary);
+    font-weight: 600;
+    margin: 0;
+}
+
+.cnx-dropzone__hint {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+    margin: 0;
+}
+
+.cnx-dropzone__input {
+    display: none;
+}
+
+/* Upload progress list inside modal */
+.cnx-upload-list {
+    margin-top: 16px;
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cnx-upload-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--cnx-bg-subtle);
+    border-radius: var(--cnx-radius-md);
+    font-size: var(--cnx-text-small-size);
+}
+
+.cnx-upload-item__name {
+    flex: 1;
+    color: var(--cnx-text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cnx-upload-item__progress {
+    width: 96px;
+    height: 6px;
+    background: var(--cnx-border);
+    border-radius: var(--cnx-radius-pill);
+    overflow: hidden;
+}
+
+.cnx-upload-item__progress > span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--cnx-accent);
+    transition: width 220ms ease;
+    border-radius: var(--cnx-radius-pill);
+}
+
+/* Modal tabs (File / Folder) */
+.cnx-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--cnx-bg-subtle);
+    border-radius: var(--cnx-radius-pill);
+    margin-bottom: 16px;
+}
+
+.cnx-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: var(--cnx-text-secondary);
+    font-size: var(--cnx-text-small-size);
+    font-weight: 500;
+    border-radius: var(--cnx-radius-pill);
+    cursor: pointer;
+    transition: var(--cnx-transition);
+}
+
+.cnx-tab[aria-selected="true"],
+.cnx-tab.is-active {
+    background: var(--cnx-bg-surface);
+    color: var(--cnx-text-primary);
+    box-shadow: var(--cnx-shadow-sm);
+}
+
+.cnx-tab:hover:not([aria-selected="true"]) {
+    color: var(--cnx-text-primary);
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.cnx-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    max-width: 320px;
+}
+
+.cnx-toast {
+    background: var(--cnx-bg-surface);
+    border: 1px solid var(--cnx-border);
+    border-left: 3px solid var(--cnx-text-muted);
+    border-radius: var(--cnx-radius-lg);
+    box-shadow: var(--cnx-shadow-lg);
+    padding: 12px 16px;
+    color: var(--cnx-text-primary);
+    font-size: var(--cnx-text-small-size);
+    pointer-events: auto;
+    animation: cnx-toast-in 200ms ease-out;
+}
+
+.cnx-toast--success { border-left-color: var(--cnx-success); }
+.cnx-toast--warning { border-left-color: var(--cnx-warning); }
+.cnx-toast--danger  { border-left-color: var(--cnx-danger); }
+.cnx-toast--info    { border-left-color: var(--cnx-accent); }
+
+.cnx-toast.is-leaving {
+    animation: cnx-toast-out 180ms ease-in forwards;
+}
+
+@keyframes cnx-toast-in {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cnx-toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(12px); }
+}
+
+/* ============================================================
+   LIST helpers (avatar group, simple stat row)
+   ============================================================ */
+.cnx-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cnx-stat__label {
+    font-size: var(--cnx-text-caption-size);
+    text-transform: uppercase;
+    letter-spacing: var(--cnx-text-caption-tracking);
+    color: var(--cnx-text-muted);
+    font-weight: 600;
+}
+
+.cnx-stat__value {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 700;
+    color: var(--cnx-text-primary);
+    letter-spacing: var(--cnx-tracking-tight);
+}
+
+.cnx-stat__hint {
+    font-size: var(--cnx-text-small-size);
+    color: var(--cnx-text-muted);
+}
+
+/* ============================================================
+   GRID helpers (responsive 3-col / 2-col)
+   ============================================================ */
+.cnx-grid {
+    display: grid;
+    gap: 24px;
+}
+
+.cnx-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cnx-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+    .cnx-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+    .cnx-grid--3, .cnx-grid--2 { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Body link reset for cnx- areas (no underline by default)
+   ============================================================ */
+.cnx-link {
+    color: var(--cnx-accent);
+    text-decoration: none;
+    transition: var(--cnx-transition);
+}
+
+.cnx-link:hover {
+    color: var(--cnx-accent-hover);
+}

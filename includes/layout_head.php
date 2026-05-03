@@ -46,6 +46,11 @@ $assetPrefix = $assetBase !== '' ? ($assetBase . '/') : '';
 <!-- Core CSS (standard order) -->
 <link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/styles.css'); ?>">
 <?php
+    // CNX UI redesign 2026-05 — reusable component layer (.cnx-*).
+    $cnxComponentsCssV = (string)((@filemtime(__DIR__ . '/../assets/css/components.css') ?: time()) . '-' . (@filesize(__DIR__ . '/../assets/css/components.css') ?: 0));
+?>
+<link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/components.css?v=' . $cnxComponentsCssV); ?>">
+<?php
     $cnxCompanyFilterCssV = (string)((@filemtime(__DIR__ . '/../assets/css/company_filter.css') ?: time()) . '-' . (@filesize(__DIR__ . '/../assets/css/company_filter.css') ?: 0));
 ?>
 <link rel="stylesheet" href="<?php echo htmlspecialchars($assetPrefix . 'assets/css/company_filter.css?v=' . $cnxCompanyFilterCssV); ?>">

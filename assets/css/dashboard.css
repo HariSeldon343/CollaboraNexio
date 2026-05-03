@@ -53,7 +53,7 @@
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-lg);
     padding: var(--space-3);
-    background: #fff;
+    background: var(--cnx-bg-surface);
 }
 .mini-calendar table {
     width: 100%;
@@ -90,7 +90,7 @@
     margin-top: 4px;
 }
 .mini-calendar td.is-today {
-    background: #f3f4ff;
+    background: var(--cnx-bg-subtle);
     border: 1px solid var(--color-primary);
 }
 .mini-calendar td.is-other-month .day-number {
@@ -162,7 +162,7 @@
 }
 
 .stat-icon.primary {
-    background: rgba(37, 99, 235, 0.1);
+    background: rgba(95, 202, 211, 0.16);
     color: var(--color-primary);
 }
 
