@@ -1877,16 +1877,26 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(8, 14, 16, 0.5);
+    background: rgba(8, 14, 16, 0.55);
     z-index: 1050;            /* below sidebar (1100), above everything else */
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+    /* Round 4.1: removed backdrop-filter — on iOS Safari + Brave it leaked
+       the blur across the sidebar itself, making nav text unreadable. The
+       solid alpha veil already provides sufficient depth + focus separation. */
     animation: cnxScrimIn 180ms ease;
 }
 .cnx-sidebar-scrim.open { display: block; }
 @keyframes cnxScrimIn {
     from { opacity: 0; }
     to   { opacity: 1; }
+}
+
+/* Defensive: ensure no parent backdrop-filter affects the open drawer.
+   Some pages set filter/backdrop-filter on .main-content or body which
+   propagate down due to stacking-context creation. */
+.sidebar[data-cnx-sidebar="true"].open {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
 }
 
 /* ============================================================================
