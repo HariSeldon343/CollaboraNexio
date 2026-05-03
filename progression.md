@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-05-03 — UI REDESIGN 2026-05 ROUND 1 SHIPPED — PR #13 open
+
+**Status:** PR APERTA su GitHub (review/merge pendente utente)
+
+**URL PR:** https://github.com/HariSeldon343/CollaboraNexio/pull/13 (ui/redesign-2026-05 → main, 9 commits)
+
+**Risultato:** dopo la pausa allo step 6/11, sessione di ripresa completa eseguita DIRECTLY dal lead (no team agents — pattern raccomandato dalla memoria post-mortem per evitare zombie su permission prompt invisibili). Tutti i 5 step rimanenti completati nello stesso run.
+
+**Step 7/11 — Shell engineer** (`5a95378`):
+- `includes/sidebar.php`: rimossa tagline subtitle "Semplifica, Connetti, Cresci Insieme"; aggiunto attributo `data-cnx-sidebar="true"` per opt-in nuovo stile; iniettato pulsante `cnx-theme-toggle` nel footer sopra user-info card. **Logic role-based 100% preservata.**
+- `includes/layout_start.php`: intenzionalmente NON toccato (avrebbe rotto le 19 pagine con header proprio).
+- `assets/js/app.js`: nuovo metodo `initThemeToggle()` chiamato da `init()` — flippa `<html data-theme>`, persiste in `localStorage("theme")`, sync `aria-pressed`, idempotente.
+- `assets/css/styles.css`: appesa nuova sezione "SHELL" scoped via `[data-cnx-sidebar=true]`: bg flat teal (no gradient), nav-section-title uppercase 0.06em tracking, nav-item.active con border-left 3px `--cnx-accent`, refresh user-info card, stili completi `.cnx-theme-toggle` con icone sun/moon SVG mask. Body bg ora si fonde con sidebar; main-content usa `--cnx-bg-app`.
+
+**Step 8/11 — Component engineer** (`82ecaf1`):
+- Nuovo file `assets/css/components.css` (~570 righe, 13 componenti): `.cnx-btn` (primary/secondary/ghost/sm/icon), `.cnx-input` + `.cnx-input--search`, `.cnx-filter-pill`, `.cnx-card`, `.cnx-breadcrumb`, `.cnx-page-header` + `.cnx-display`, `.cnx-table`, `.cnx-badge` (success/warning/danger/info/accent + dark-theme tweaks), `.cnx-modal` + tabs, `.cnx-dropzone` + upload list, `.cnx-toast`, `.cnx-stat`, `.cnx-grid`. Caricato in `layout_head.php` subito dopo styles.css (cache-bust automatico).
+- Migrazione hex hardcoded → tokens:
+  - `dashboard.css`: 2 hex literals (`#fff`, `#f3f4ff`) → `var(--cnx-bg-surface)` / `var(--cnx-bg-subtle)`
+  - `filemanager.css`: 13 hex literals + 6 `rgba(37,99,235,...)` literals (vecchio blu) → tokens `--cnx-*` (incluso old `#2563EB` → `var(--cnx-accent)` mint)
+- Verifica: 0 hex literals rimanenti in entrambi i file.
+
+**Step 9/11 — Page migrator** (`c9f08e0`):
+- `dashboard.php`: rimpiazzato page-title "Dashboard" con greeting personalizzato `<h1 class="cnx-display">Ciao, {firstName}!</h1>` + sottotitolo data italiana formattata inline (`Domenica, 3 maggio 2026`). Company filter nello slot `cnx-page-header__actions`. **Tutti gli hidden input, le 3 stat-card, le grid Activity/MiniCalendar/Documents/Events/Tickets, dashboard_manager.js initialization preservati invariati.** Nessun ID o loop PHP toccato.
+- `files.php`: `header h1` ora con `cnx-page-header__title` + nuovo subtitle "Documenti, cartelle e workflow del tuo tenant". Breadcrumb refactor a `.cnx-breadcrumb` con `__item/__link/__sep/__item--current`. **Hook `data-path="/"` preservato** (filemanager_enhanced.js continua a navigare cartelle). **Upload buttons, drop-zone, 7 workflow-modals, file grid/list, details sidebar, context menu intenzionalmente NON toccati** (BUG-136 zero-byte check, MIME validation, OnlyOffice integration restano bit-identical per spec direction.md).
+
+**Step 10/11 — Visual QA Playwright** (`458fef8`):
+- Cattura `tools/ui_redesign/light/*.png` (11 pagine) e `tools/ui_redesign/dark/*.png` (10 pagine — login non ha shell quindi no dark capture). Viewport 1440×900, sessione super_admin (asamodeo@fortibyte.it / Cartesi@2019).
+- Smoke test 10/10 PASS: sidebarPresent, themeToggleBound, componentsCssLoaded, fileManager+workflowManager+fileAssignmentManager+dashboardManager initialized, uploadBtn presente, csrfToken wired, greeting/breadcrumb/title classes presenti.
+- Theme toggle behaviour: click → `data-theme="dark"` su `<html>` + `localStorage.theme="dark"` ✓
+- Report: `tools/ui_diff_report.html` (3-up Baseline|Light|Dark per pagina, sticky nav, summary card, partial-state notes — apri direttamente nel browser); `tools/ui_smoke_report.json` (0 blocker failures).
+- Console errors osservati: `GET /api/events.php?tenant_id=28 -> 500` PRE-ESISTENTE (server-side bug indipendente, NON introdotto dal redesign).
+
+**Step 11/11 — PR aperta** (PR #13):
+- 9 commit totali sul branch (4 pre-pause + 5 post-pause).
+- Body PR include: link diff HTML, smoke report, lista commit, scope per layer, test plan operatore, partial-states round 2 (non blocker), backup/rollback (tag `ui-baseline-2026-05-03` su `f2ba87a` + tarball `backups/full-backup-pre-ui-redesign-20260503.tar.gz`).
+- **NON mergiata** — attesa visual approval utente.
+
+**Lessons learned dalla sessione (da memorizzare):**
+- Pattern "lead esegue tutto direttamente" ha funzionato perfettamente: 0 zombie, 0 permission prompt sospesi, ~30 minuti dal resume al PR aperto. Confermato come pattern preferito per redesign UI mid-size.
+- Playwright login automatico con super_admin OK (no fallback manuale necessario in questo run).
+- Allowlist Bash è già completa per `git push origin ui/*` da PR #6 batch — nessuna patch necessaria.
+- `Edit replace_all` richiede Read precedente → su file con 100+ ricorrenze hex usare direttamente `sed -i` via Bash (decisamente più veloce).
+
+**Round 2 (futuro, non in questo PR):**
+- Migrare le stat-card, form panels, audit-log cards, configurazioni panels da `--color-white` a `--cnx-bg-surface` per dark-mode coerente.
+- Migrare i `.btn-primary` legacy a `.cnx-btn--primary` page-by-page.
+- Implementare il modal "Aggiungi file o cartella" con dropzone tabbed File/Cartella (cnx-modal + cnx-dropzone) cablato all'API upload esistente.
+- Aggiungere search bar globale `.cnx-input--search` nell'header (richiede refactor dei 19 per-page header).
+
+---
+
 ## 2026-05-03 — UI REDESIGN PAUSED at step 6/11 (design-system tokens done)
 
 **Status:** WORK IN PROGRESS, sessione fermata dall'utente, branch `ui/redesign-2026-05` su `3a25fc9`.
