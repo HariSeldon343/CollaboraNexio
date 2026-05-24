@@ -210,12 +210,17 @@ class Database {
      * @throws Exception In caso di errore nell'esecuzione
      */
     public function query(string $sql, array $params = []): PDOStatement {
+        $startedAt = microtime(true);
+
         try {
             // Prepara la query
             $stmt = $this->connection->prepare($sql);
 
             // Esegue con i parametri forniti
             $stmt->execute($params);
+
+            // Slow query logging (non-blocking, threshold-gated, no PII)
+            $this->maybeLogSlowQuery($sql, $startedAt, null);
 
             // Log query in debug mode
             if (DEBUG_MODE) {
@@ -225,6 +230,9 @@ class Database {
             return $stmt;
 
         } catch (PDOException $e) {
+            // Log slow query attempt anche in caso di errore (utile per timeout/lock)
+            $this->maybeLogSlowQuery($sql, $startedAt, $e->getMessage());
+
             // Log errore
             $this->log('ERROR', 'Errore query: ' . $e->getMessage() . ' - SQL: ' . $sql);
 
@@ -234,6 +242,97 @@ class Database {
             } else {
                 throw new Exception('Errore durante l\'operazione sul database');
             }
+        }
+    }
+
+    /**
+     * Logga una query lenta su logs/slow_queries.log se supera la soglia
+     * configurata in SLOW_QUERY_THRESHOLD_MS (default 500ms).
+     *
+     * Formato: una riga JSON per query con campi:
+     *   - ts: timestamp ISO-8601 con millisecondi
+     *   - duration_ms: durata in millisecondi (intero, arrotondato)
+     *   - sql: SQL parametrizzato (truncato a 2000 char) — NESSUN $params (PII)
+     *   - caller: primo frame applicativo fuori da includes/db.php (file:line function())
+     *   - error: presente solo se la query ha fallito (messaggio sintetico)
+     *
+     * Non-blocking: ogni errore di scrittura va in error_log() e non propaga.
+     * Zero overhead in caso normale: il timestamp finale e la scrittura
+     * avvengono solo se la durata supera la soglia.
+     *
+     * @param string $sql SQL della query (parametrizzato, senza valori utente)
+     * @param float $startedAt Timestamp iniziale da microtime(true)
+     * @param string|null $errorMessage Messaggio di errore se la query è fallita
+     */
+    private function maybeLogSlowQuery(string $sql, float $startedAt, ?string $errorMessage): void {
+        try {
+            $thresholdMs = defined('SLOW_QUERY_THRESHOLD_MS') ? (int) SLOW_QUERY_THRESHOLD_MS : 500;
+            if ($thresholdMs <= 0) {
+                return;
+            }
+
+            $durationMs = (microtime(true) - $startedAt) * 1000.0;
+            if ($durationMs < $thresholdMs) {
+                return;
+            }
+
+            // SQL truncato a 2000 char (parametrizzato, niente PII)
+            $sqlForLog = $sql;
+            if (strlen($sqlForLog) > 2000) {
+                $sqlForLog = substr($sqlForLog, 0, 2000) . '…';
+            }
+
+            // Caller: primo frame fuori da includes/db.php
+            $caller = '';
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 6);
+            foreach ($trace as $frame) {
+                $file = $frame['file'] ?? '';
+                if ($file === '' || str_ends_with(str_replace('\\', '/', $file), '/includes/db.php')) {
+                    continue;
+                }
+                $line = $frame['line'] ?? 0;
+                $fn = $frame['function'] ?? '';
+                $caller = $file . ':' . $line . ($fn !== '' ? ' ' . $fn . '()' : '');
+                break;
+            }
+
+            // ISO-8601 con millisecondi (timezone locale)
+            $now = microtime(true);
+            $secs = (int) $now;
+            $msPart = (int) round(($now - $secs) * 1000);
+            if ($msPart === 1000) { $secs += 1; $msPart = 0; }
+            $tz = new DateTimeZone(date_default_timezone_get());
+            $base = (new DateTimeImmutable('@' . $secs))->setTimezone($tz);
+            $ts = $base->format('Y-m-d\TH:i:s')
+                . '.' . str_pad((string) $msPart, 3, '0', STR_PAD_LEFT)
+                . $base->format('P');
+
+            $entry = [
+                'ts'          => $ts,
+                'duration_ms' => (int) round($durationMs),
+                'sql'         => $sqlForLog,
+                'caller'      => $caller,
+            ];
+            if ($errorMessage !== null) {
+                $entry['error'] = mb_substr($errorMessage, 0, 500);
+            }
+
+            $line = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($line === false) {
+                return;
+            }
+
+            $logDir = dirname(__DIR__) . '/logs';
+            if (!is_dir($logDir)) {
+                @mkdir($logDir, 0755, true);
+            }
+            $path = $logDir . '/slow_queries.log';
+
+            @file_put_contents($path, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+
+        } catch (\Throwable $t) {
+            // Non-blocking: non propagare mai errori del logger
+            error_log('slow_query_logger: ' . $t->getMessage());
         }
     }
 

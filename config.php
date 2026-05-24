@@ -87,6 +87,11 @@ if (!defined('DB_COLLATION')) define('DB_COLLATION', 'utf8mb4_unicode_ci');
 // PDO options
 if (!defined('DB_PERSISTENT')) define('DB_PERSISTENT', false); // Add missing constant
 if (!defined('LOG_LEVEL')) define('LOG_LEVEL', 'ERROR'); // Add missing log level constant
+
+// Slow query logging threshold (ms). Queries that exceed this duration are
+// appended (one JSON line each) to logs/slow_queries.log by Database::query().
+// Set to 0 to disable. See docs/performance/slow-query-logging.md.
+if (!defined('SLOW_QUERY_THRESHOLD_MS')) define('SLOW_QUERY_THRESHOLD_MS', 500);
 if (!defined('DB_PDO_OPTIONS')) {
     define('DB_PDO_OPTIONS', [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
